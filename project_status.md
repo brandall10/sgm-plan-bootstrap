@@ -1,9 +1,9 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-12
-**Current state:** Capability specifications and planning handoff prepared; no product implementation verified in this bundle.
-**Recommended next work:** W01 — open and refresh a representative Plan Package.
-**Active implementation plan:** None established here. Preserve any active work found in the target repository.
+**Current state:** W01 implementation plan accepted and committed; no product implementation or verification performed.
+**Recommended next work:** Activate W01 through `status-next`.
+**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted; execution not started).
 
 ## Goal and observed baseline
 
@@ -17,7 +17,7 @@ This file is the sole source of truth for proposed work, actual plan links, prio
 
 | ID | Proposed plan outcome | Scope and prerequisites | Specification references | State / actual plan |
 | --- | --- | --- | --- | --- |
-| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | Recommended for planning; no plan yet |
+| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); committed, execution not started |
 | W02 | Refine, accept, and reopen the same proposal | Native feedback plus preserved reviewed assets and clear draft/accepted views; requires a usable viewer and actual host-surface findings | [Visual meaning](docs/specs/01-plan-package.md#visual-meaning), [revisions and acceptance](docs/specs/01-plan-package.md#revisions-and-acceptance); [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop), [comparison](docs/specs/02-viewer-and-review.md#acceptance-and-comparison) | Proposed; no plan yet |
 | W03 | Retrieve phase context and predecessor results | Shared selector/CLI and demonstrable result handling in the product; requires package/revision semantics, not an SGM graph | [Context selection](docs/specs/03-execution-and-integration.md#context-selection), [operations](docs/specs/03-execution-and-integration.md#operations), [readiness](docs/specs/03-execution-and-integration.md#readiness-and-revisions), [product results](docs/specs/03-execution-and-integration.md#durable-results-in-the-product) | Proposed; no plan yet |
 | W04 | Use the workflow on a real change | Thin adapters and a two-phase change in a separate trial project, including a fresh-session handoff; requires usable package/viewer/context capabilities | [Skill integration](docs/specs/03-execution-and-integration.md#planning-skill-integration), [verification](docs/specs/03-execution-and-integration.md#verification-and-completion), [correctness and usefulness](docs/specs/03-execution-and-integration.md#observable-correctness-and-usefulness); [performance](docs/specs/02-viewer-and-review.md#performance-and-proportionality) | Proposed; no plan yet |
@@ -65,3 +65,18 @@ Update the affected roadmap row and the recommended next work from actual result
 The actual host presentation mechanism, initial representation details, and useful performance baseline remain decisions for W01. Subsequent review/context design can change in response to those findings; record the decision here and propose a spec revision if intended behavior must change.
 
 Broader SGM comprehension and change-analysis goals remain relevant, but this roadmap need not enumerate them now. Automatic learning, hierarchy, routing, MCP, and fresh-versus-continuing comparisons have no selected implementation work. Add a concrete work item here only when evidence and priorities justify it.
+
+### W01 planning — 2026-09-12
+
+- Drafted [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) against documentation-only baseline `662800e`. The clean checkout contained no source, tests, active checklist, plans or execution results; no applicable AGENTS.md was found.
+- Chose a single TypeScript/npm project with a Node runtime and React viewer, an inline-phase package core, and a final atomic `plan.json` manifest with digested local dependencies. Candidate-scoped immutable asset bytes prevent mixed content during refresh. Exact supported dependency versions will be locked during execution.
+- The proposal covers three dependent PR-sized phases: core/fixtures/loading, viewer/native probe, and refresh/recovery/measurements. Native annotation remains unverified and may require a real user interaction; browser delivery can proceed with an explicit unsupported/unverified outcome.
+- No implementation, dependency installation, product checks, or execution occurred. No root `status.md` or results record was created. W01 is now accepted and committed; `status-next` activation remains the next step. W02–W05 remain unchanged proposals.
+
+### Planning correction — 2026-09-12
+
+- The first W01 draft copied repository-baseline facts and handoff/commit instructions into the plan. The planner guidance requires an observed starting state, which explains the former baseline paragraph; its handoff rule only requires reporting uncommitted revisions, and the commit mechanics belong in project memory or `status-next`. Those process paragraphs were removed from the uncommitted plan. No accepted plan was mutated.
+
+### W01 acceptance — 2026-09-12
+
+- User acceptance promoted W01 from proposal to the active committed plan. The plan and this project-status update are committed together; implementation and `status.md` activation have not started.
