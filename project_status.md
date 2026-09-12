@@ -52,6 +52,16 @@ Update the affected roadmap row and the recommended next work from actual result
 
 ## Open questions and future considerations
 
+### Bootstrap documentation review — 2026-09-12
+
+- Initialized the local repository on `main`. README and ignore conventions were committed separately from the three capability specifications and this roadmap. The checkout contains documentation only; no application, dependency manifest, or test setup exists yet. Root `status.md` and macOS `.DS_Store` files are ignored.
+- Reviewed README, this memory file, and all three specifications for technical guidance. A small TypeScript application with a local Node service is a suggested starting point, not a mandated stack. Framework, package manager, renderer, runtime versions, validation library, and watch transport remain W01 planning choices.
+- Required architectural boundaries are a shared package core, local file/runtime service, web viewer, and optional host presentation adapter. The later context CLI must reuse the core's semantics. No source-directory layout or workspace/monorepo arrangement is prescribed; choose the smallest layout that preserves these boundaries.
+- Existing document ownership is explicit: read-only `docs/specs/`, durable `project_status.md`, ignored active `status.md`, and Markdown implementation plans under `docs/plans/YYYY-MM-DD-XX-feature-name/plan.md` unless an established location supersedes it. Experimental product packages use `plan.json` with Markdown narrative fields; example field names are provisional.
+- W01 must settle the supported package representation and completed-write convention. Debouncing alone is insufficient for multi-file coherence; retain the last valid model with diagnostics on incomplete edits. Stable IDs, declared reference roots, safe narrative rendering, symlink-aware file confinement, and isolated prototype scripts constrain implementation.
+- Local launch requires one documented command. Common viewing and refresh require no LLM calls. Accounts, hosted deployment, a database, custom annotation transport, and an initial MCP interface are unnecessary. Native annotation compatibility requires an actual host probe and remains unverified.
+- Verification guidance calls for two distinct packages, coherent data/asset refresh, invalid-write recovery, preserved navigation, and measured local load/refresh behavior. Full acceptance/history, context execution, skill adapters, and SGM integration remain later proposed work. No implementation plan was created or activated by this review, and no product tests were run.
+
 The actual host presentation mechanism, initial representation details, and useful performance baseline remain decisions for W01. Subsequent review/context design can change in response to those findings; record the decision here and propose a spec revision if intended behavior must change.
 
 Broader SGM comprehension and change-analysis goals remain relevant, but this roadmap need not enumerate them now. Automatic learning, hierarchy, routing, MCP, and fresh-versus-continuing comparisons have no selected implementation work. Add a concrete work item here only when evidence and priorities justify it.
