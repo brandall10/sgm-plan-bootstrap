@@ -35,7 +35,7 @@ Do not write completion marks, run results, implementation notes, roadmap IDs, o
 
 The specs describe richer plan/execution records that the product may eventually maintain. Those future structures do not replace these two memory files during this experiment.
 
-Root status.md remains ignored and reconstructible. Before resetting it, move consequential findings, progress, decisions, and evidence links into project_status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning.
+Root status.md and project_status.md belong in version control and must not be ignored. Before resetting it, move consequential findings, progress, decisions, and evidence links into project_status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning.
 
 ## Planning and execution conventions
 
