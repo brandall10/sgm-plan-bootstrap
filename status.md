@@ -33,7 +33,7 @@ Next action: review and accept [W02 P3 PR #7](https://github.com/brandall10/sgm-
 - Implementation: `fd6eee9` adds history/snapshot/draft APIs, content comparison, concrete viewer routes, provenance, pinned assets, and regression coverage.
 - Validation: `npm run typecheck`, `npm run lint`, `npm test` (42 passed), `npm run test:e2e` (9 passed), `npm run build`, and `git diff --check` passed.
 - Review: [PR #6](https://github.com/brandall10/sgm-plan-bootstrap/pull/6) was approved after checking W02 P2 against base `cfbadf5` and implementation `fd6eee9`.
-- Integration: merged and verified in local and remote `main` at `650fd12`; do not start P3 until a real native annotation is available.
+- Integration: merged and verified in local and remote `main` at `650fd12`; P3 began after its real native-annotation prerequisite was received.
 
 ## P3 — Demonstrate the complete review/refinement loop
 
