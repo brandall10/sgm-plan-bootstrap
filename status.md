@@ -4,9 +4,9 @@ Source plan: [W02 plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md)
 
 Results: [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)
 
-State: W02 P1 is integrated in `main` via PR #4.
+State: W02 P1 is integrated in `main`; P2 implementation is verified and approved for integration. P3 remains unstarted.
 
-Next action: W02 P2 is next; run `status-next` when execution is requested. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
+Next action: merge the W02 P2 phase PR, then begin P3 only when a real native annotation can be obtained. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
 
 ## P1 — Durable snapshots and explicit acceptance
 
@@ -23,10 +23,17 @@ Next action: W02 P2 is next; run `status-next` when execution is requested. W01 
 
 ## P2 — Reopen and compare accepted proposals
 
-- [ ] P2-T1 — Add snapshot/history APIs and shared stable-ID/content comparison.
-- [ ] P2-T2 — Implement pinned routes, selection, provenance, and safe retained assets.
-- [ ] P2-T3 — Present linked material changes with accessible navigation.
-- [ ] P2-T4 — Verify both fixtures, restart/refresh, comparison, and integrity failures.
+- [x] P2-T1 — Add snapshot/history APIs and shared stable-ID/content comparison.
+- [x] P2-T2 — Implement pinned routes, selection, provenance, and safe retained assets.
+- [x] P2-T3 — Present linked material changes with accessible navigation.
+- [x] P2-T4 — Verify both fixtures, restart/refresh, comparison, and integrity failures.
+
+## P2 delivery note
+
+- Implementation: `fd6eee9` adds history/snapshot/draft APIs, content comparison, concrete viewer routes, provenance, pinned assets, and regression coverage.
+- Validation: `npm run typecheck`, `npm run lint`, `npm test` (42 passed), `npm run test:e2e` (9 passed), `npm run build`, and `git diff --check` passed.
+- Review: [PR #6](https://github.com/brandall10/sgm-plan-bootstrap/pull/6) is approved after checking W02 P2 against base `cfbadf5` and implementation `fd6eee9`; cleanup-only head is `4ee59ac`.
+- Integration: pending merge; do not start P3 until a real native annotation is available.
 
 ## P3 — Demonstrate the complete review/refinement loop
 

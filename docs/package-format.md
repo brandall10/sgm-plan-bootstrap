@@ -99,6 +99,22 @@ idempotent (the generated timestamp is not part of the retry identity), while
 conflicting input fails. Acceptance is provenance only: it does not mutate
 `plan.json`, activate execution, or make a blocking question executable.
 
+The viewer's history projection is available at `/api/history` (also exposed
+as `/api/snapshots`). It lists verified snapshots, their acceptance records
+and captured-file availability, plus the current working draft and the default
+view. An accepted snapshot is selected as the default only when a
+non-illustrative acceptance record names it; otherwise the working draft is
+shown. Acceptance records remain provenance, so an illustrative record is
+listed and labeled but does not become the default.
+
+Two saved snapshots can be compared with
+`/api/compare?from=<snapshot-id>&to=<snapshot-id>`. The `to` selection may
+also be `draft`, which resolves to the current working draft's persisted
+snapshot. Comparison output uses stable package IDs, separates material
+changes from metadata/serialization changes, includes old and new values, and
+reports captured inputs that cannot be verified. Comparisons across package
+IDs and comparisons with unavailable or corrupt snapshots are rejected.
+
 The runtime reads exact manifest bytes before loading files and rereads them
 afterward. A manifest mutation, missing file, digest mismatch, or path escape
 discards the candidate. A successful candidate receives a separate displayed
@@ -117,12 +133,14 @@ npm run dev -- --package examples/save-outcome
 ```
 
 The runtime binds to `127.0.0.1` by default and opens the browser viewer at
-`/`. It exposes `/api/health`, `/api/state`, `/api/acceptances`, and a
-server-sent event stream at `/api/events`. Candidate-scoped JSON model
-responses are available at
-`/api/candidates/<content-id>/model`, with captured files/assets at
-`/api/candidates/<content-id>/files/<file-id>` or
-`/api/candidates/<content-id>/assets/<asset-id>`.
+`/`. It exposes `/api/health`, `/api/state`, `/api/acceptances`,
+`/api/history`, and a server-sent event stream at `/api/events`. The working
+draft is available at `/api/draft/model`, while an immutable saved snapshot is
+available at `/api/snapshots/<snapshot-id>/model`. Both views have captured
+`files` and non-HTML `assets` routes; HTML prototypes are served only through
+their isolated `prototypes/<asset-id>/` route. The older candidate-scoped
+routes remain available for compatibility, but new links to accepted material
+use snapshot-scoped URLs.
 
 The viewer's **Reload package** control uses `POST /api/reload` to reread and
 revalidate the already selected package. It writes no package files: a valid
@@ -137,18 +155,25 @@ the retained candidate's package/revision and the rejection diagnostics.
 The viewer renders that resolved model instead of reparsing package files. Its
 overview and phase routes use stable package/item IDs in the hash, show goal,
 scope, shared constraints, exact criteria, dependencies, applicable decisions
-and questions, diagnostics, and artifact metadata. Missing or package-mismatched
-deep links remain visible errors rather than silently selecting another item.
+and questions, diagnostics, and artifact metadata. Unqualified package links
+open the selected default view, while concrete links use
+`#/packages/<package-id>/draft` or
+`#/packages/<package-id>/snapshots/<snapshot-id>` (with optional `/items/<id>`).
+The view switcher exposes the working draft and every recorded snapshot.
+Comparison links use
+`#/packages/<package-id>/compare/<from-snapshot-id>/<draft|to-snapshot-id>`.
+Missing or package-mismatched deep links remain visible errors rather than
+silently selecting another item.
 Narrative Markdown is rendered as text and small supported Markdown constructs;
 raw HTML is never interpreted and only `https:`, `http:`, `mailto:`, and fragment
 link destinations become links.
 
-SVG assets are displayed as images from their immutable candidate URL. HTML
-prototype assets are deliberately unavailable from the generic asset endpoint:
-the viewer opens them only at
-`/api/candidates/<content-id>/prototypes/<asset-id>/` in an iframe with
-`sandbox="allow-scripts"`. The runtime serves only that HTML file and its
-declared relative dependencies from the captured candidate, applies restrictive
+SVG assets are displayed as images from their immutable snapshot or draft URL.
+HTML prototype assets are deliberately unavailable from the generic asset
+endpoint: the viewer opens them only at the view's
+`/api/{draft|snapshots/<snapshot-id>}/prototypes/<asset-id>/` route in an iframe
+with `sandbox="allow-scripts"`. The runtime serves only that HTML file and its
+declared relative dependencies from the captured view, applies restrictive
 CSP, and prevents the opaque sandbox from accessing viewer controls. The mock
 label is part of the frame, not an assertion that a product action occurred.
 

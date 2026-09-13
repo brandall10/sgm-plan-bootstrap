@@ -6,6 +6,7 @@ import { expect, test } from "@playwright/test";
 
 import { startRuntime, type RunningRuntime } from "../server/runtime.js";
 import { publishPackage } from "../server/publication.js";
+import { SnapshotStore } from "../server/snapshot-store.js";
 
 const repositoryRoot = resolve(process.cwd());
 let offlineRuntime: RunningRuntime | undefined;
@@ -258,5 +259,58 @@ test("reconnects after a runtime restart and reloads the current state", async (
   } finally {
     await page.goto("about:blank");
     await restartedRuntime?.close();
+  }
+});
+
+test("opens the latest real acceptance as a concrete pinned route and compares it with the draft", async ({ page }) => {
+  const fixture = await copyFixture("offline-recovery");
+  const runtime = await startRuntime({
+    packageRoot: fixture.packageRoot,
+    port: 0,
+    watch: false,
+    serveViewer: true,
+    viewerRoot: repositoryRoot,
+  });
+
+  try {
+    const before = await (await fetch(`${runtimeUrl(runtime)}/api/state`)).json() as { packageId: string; currentSnapshotId: string; };
+    const snapshotStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
+    const recorded = await snapshotStore.recordAcceptance({
+      format: "plan-package-acceptance",
+      format_version: "1",
+      record_id: "acceptance.viewer-pinned",
+      package_id: before.packageId,
+      snapshot_id: before.currentSnapshotId,
+      instruction: "I accept this exact illustrative viewer proposal.",
+      source: "conversation:viewer-e2e",
+      actor: "test:viewer-e2e",
+      recorded_at: "2026-09-13T18:00:00.000Z",
+      illustrative: false,
+    });
+    expect(recorded.created).toBe(true);
+    await writeFile(join(fixture.packageRoot, "docs/behavior-notes.md"), "The newer draft wording is deliberately different.\n");
+    await writeFile(join(fixture.packageRoot, "designs/recovery-prototype.css"), "body { background: #fef3c7; }\n");
+    expect((await publishPackage({ packageRoot: fixture.packageRoot })).published).toBe(true);
+    await fetch(`${runtimeUrl(runtime)}/api/reload`, { method: "POST" });
+
+    await page.goto(`${runtimeUrl(runtime)}/#/packages/offline-recovery`);
+    await expect(page.getByText("Accepted snapshot", { exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("acceptance-provenance")).toContainText("test:viewer-e2e");
+    await expect(page).toHaveURL(new RegExp(`/snapshots/${before.currentSnapshotId}$`));
+    await expect(page.getByTestId("compare-with-draft")).toBeVisible();
+
+    await page.getByTestId("compare-with-draft").click();
+    await expect(page.getByTestId("comparison-summary")).toBeVisible();
+    await expect(page.getByTestId("comparison-summary")).toContainText("file.behavior-notes");
+    await expect(page.getByTestId("comparison-summary")).toContainText("file.recovery-prototype-css");
+    await expect(page.getByTestId("comparison-summary")).toContainText("asset.recovery-prototype");
+
+    await page.getByTestId("view-draft").click();
+    await expect(page).toHaveURL(/\/draft$/);
+    await expect(page.getByText("Working draft", { exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("current-revision")).toHaveText("3");
+  } finally {
+    await page.goto("about:blank");
+    await runtime.close();
   }
 });

@@ -69,6 +69,11 @@ export interface AcceptanceHistoryResult {
   diagnostics: Diagnostic[];
 }
 
+export interface SnapshotHistoryResult {
+  snapshots: StoredSnapshot[];
+  diagnostics: Diagnostic[];
+}
+
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -380,6 +385,29 @@ export class SnapshotStore {
     }
     records.sort((left, right) => left.recorded_at.localeCompare(right.recorded_at) || left.record_id.localeCompare(right.record_id));
     return { records, diagnostics };
+  }
+
+  async listSnapshots(packageId?: string): Promise<SnapshotHistoryResult> {
+    const diagnostics: Diagnostic[] = [];
+    const snapshots: StoredSnapshot[] = [];
+    let names: string[];
+    try {
+      names = await readdir(join(this.root, "snapshots"));
+    } catch {
+      return { snapshots, diagnostics };
+    }
+    for (const name of names.filter((candidate) => candidate.endsWith(".json")).sort()) {
+      const snapshotId = name.slice(0, -".json".length);
+      const result = await this.open(snapshotId);
+      if (!result.snapshot) {
+        diagnostics.push(...result.diagnostics);
+        continue;
+      }
+      if (packageId && result.snapshot.packageId !== packageId) continue;
+      snapshots.push(result.snapshot);
+    }
+    snapshots.sort((left, right) => left.revision - right.revision || left.snapshotId.localeCompare(right.snapshotId));
+    return { snapshots, diagnostics };
   }
 
   async recordAcceptance(record: AcceptanceRecord): Promise<AcceptanceWriteResult> {

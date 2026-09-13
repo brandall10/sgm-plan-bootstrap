@@ -23,8 +23,12 @@ interface ViewerModel {
   package_id: string;
   revision: number;
   content_id: string;
+  view_kind: "draft" | "snapshot";
+  view_id: string;
   readiness: "reviewable" | "reviewable-with-planning-blockers";
   acceptance_status: "unverified" | "accepted" | "illustrative";
+  acceptance_provenance: AcceptanceRecord | null;
+  acceptance_records: AcceptanceRecord[];
   diagnostics: Diagnostic[];
   planning_blockers: Diagnostic[];
   files: PackageFile[];
@@ -37,6 +41,7 @@ interface RuntimeState {
   currentCandidateId: string | null;
   currentSnapshotId: string | null;
   currentRevision: number | null;
+  defaultView: RuntimeViewReference;
   diagnostics: Diagnostic[];
   planningBlockers: Diagnostic[];
   acceptances: AcceptanceRecord[];
@@ -46,9 +51,59 @@ interface RuntimeState {
 
 type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
 
+type ViewSelection =
+  | { kind: "default" }
+  | { kind: "draft" }
+  | { kind: "snapshot"; snapshotId: string };
+
+interface RuntimeViewReference {
+  kind: "draft" | "snapshot";
+  snapshot_id: string | null;
+  candidate_id: string | null;
+}
+
+interface ComparisonChange {
+  category: string;
+  id: string;
+  item_id: string;
+  kind: "added" | "removed" | "changed";
+  classification: "material" | "metadata";
+  fields: string[];
+  old_value: unknown | null;
+  new_value: unknown | null;
+  old_snapshot_id: string;
+  new_snapshot_id: string;
+  affected_asset_ids: string[];
+  affected_item_ids: string[];
+}
+
+interface ComparisonProjection {
+  format: string;
+  from: { snapshot_id: string; package_id: string; revision: number; content_id: string };
+  to: { snapshot_id: string; package_id: string; revision: number; content_id: string };
+  changes: ComparisonChange[];
+  material_change_count: number;
+  metadata_change_count: number;
+  unavailable_inputs: Array<{ snapshot_id: string; file_id: string; path: string; message: string }>;
+  diagnostics?: Diagnostic[];
+}
+
+interface ComparisonResponse {
+  valid: boolean;
+  value: ComparisonProjection | null;
+  diagnostics: Diagnostic[];
+}
+
+interface CompareRoute {
+  fromSnapshotId: string;
+  toView: ViewSelection;
+}
+
 interface Route {
   packageId: string | null;
   itemId: string | null;
+  view: ViewSelection;
+  compare: CompareRoute | null;
 }
 
 type AddressedKind = "asset" | "constraint" | "criterion" | "decision" | "phase" | "question";
@@ -75,17 +130,53 @@ function decodeRoutePart(value: string | undefined): string | null {
 }
 
 function parseRoute(hash: string): Route {
+  const emptyRoute = (): Route => ({ packageId: null, itemId: null, view: { kind: "default" }, compare: null });
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
-  if (parts[0] !== "packages") return { packageId: null, itemId: null };
+  if (parts[0] !== "packages") return emptyRoute();
   const packageId = decodeRoutePart(parts[1]);
-  if (parts.length === 2) return { packageId, itemId: null };
-  if (parts[2] === "items" && parts.length === 4) return { packageId, itemId: decodeRoutePart(parts[3]) };
-  return { packageId, itemId: "__invalid-route__" };
+  if (parts.length === 2) return { packageId, itemId: null, view: { kind: "default" }, compare: null };
+  if (parts[2] === "items" && parts.length === 4) return { packageId, itemId: decodeRoutePart(parts[3]), view: { kind: "default" }, compare: null };
+  if (parts[2] === "draft" && (parts.length === 3 || (parts[3] === "items" && parts.length === 5))) {
+    return { packageId, itemId: parts.length === 5 ? decodeRoutePart(parts[4]) : null, view: { kind: "draft" }, compare: null };
+  }
+  if (parts[2] === "snapshots" && parts[3] && (parts.length === 4 || (parts[4] === "items" && parts.length === 6))) {
+    const snapshotId = decodeRoutePart(parts[3]);
+    if (!snapshotId) return { packageId, itemId: "__invalid-route__", view: { kind: "default" }, compare: null };
+    return { packageId, itemId: parts.length === 6 ? decodeRoutePart(parts[5]) : null, view: { kind: "snapshot", snapshotId }, compare: null };
+  }
+  if (parts[2] === "compare" && parts.length === 5) {
+    const fromSnapshotId = decodeRoutePart(parts[3]);
+    const toToken = decodeRoutePart(parts[4]);
+    const toView = toToken === "draft" ? { kind: "draft" as const } : toToken ? { kind: "snapshot" as const, snapshotId: toToken } : null;
+    if (fromSnapshotId && toView) return { packageId, itemId: null, view: toView, compare: { fromSnapshotId, toView } };
+  }
+  return { packageId, itemId: "__invalid-route__", view: { kind: "default" }, compare: null };
 }
 
-function routeFor(packageId: string, itemId?: string): string {
-  const packageRoute = `#/packages/${encodeURIComponent(packageId)}`;
+function routeFor(packageId: string, itemId?: string, view: ViewSelection | null = null): string {
+  const viewRoute = view?.kind === "draft"
+    ? "/draft"
+    : view?.kind === "snapshot"
+      ? `/snapshots/${encodeURIComponent(view.snapshotId)}`
+      : "";
+  const packageRoute = `#/packages/${encodeURIComponent(packageId)}${viewRoute}`;
   return itemId ? `${packageRoute}/items/${encodeURIComponent(itemId)}` : packageRoute;
+}
+
+function comparisonRouteFor(packageId: string, fromSnapshotId: string, toView: ViewSelection): string {
+  const target = toView.kind === "draft" ? "draft" : toView.kind === "snapshot" ? toView.snapshotId : "draft";
+  return `#/packages/${encodeURIComponent(packageId)}/compare/${encodeURIComponent(fromSnapshotId)}/${encodeURIComponent(target)}`;
+}
+
+function modelView(model: ViewerModel): ViewSelection {
+  return model.view_kind === "snapshot" && model.snapshot_id
+    ? { kind: "snapshot", snapshotId: model.snapshot_id }
+    : { kind: "draft" };
+}
+
+function activeView(): ViewSelection | null {
+  const view = parseRoute(window.location.hash).view;
+  return view.kind === "default" ? null : view;
 }
 
 function itemIndex(plan: PlanPackage): Map<string, AddressedItem> {
@@ -122,7 +213,7 @@ function Chip({ children, tone = "neutral" }: { children: ReactNode; tone?: "err
 }
 
 function ItemLink({ packageId, itemId, children }: { packageId: string; itemId: string; children: ReactNode }): ReactElement {
-  return <a href={routeFor(packageId, itemId)}>{children}</a>;
+  return <a href={routeFor(packageId, itemId, activeView())}>{children}</a>;
 }
 
 function ItemId({ packageId, itemId }: { packageId: string; itemId: string }): ReactElement {
@@ -281,28 +372,31 @@ function DecisionQuestionPanel({ packageId, plan, phase }: { packageId: string; 
   );
 }
 
-function assetUrl(candidateId: string, assetId: string): string {
-  return `/api/candidates/${encodeURIComponent(candidateId)}/assets/${encodeURIComponent(assetId)}`;
+function assetUrl(model: ViewerModel, assetId: string): string {
+  const base = model.view_kind === "snapshot" && model.snapshot_id
+    ? `/api/snapshots/${encodeURIComponent(model.snapshot_id)}`
+    : `/api/candidates/${encodeURIComponent(model.content_id)}`;
+  return `${base}/assets/${encodeURIComponent(assetId)}`;
 }
 
-function prototypeUrl(candidateId: string, assetId: string): string {
-  return `/api/candidates/${encodeURIComponent(candidateId)}/prototypes/${encodeURIComponent(assetId)}/`;
+function prototypeUrl(model: ViewerModel, assetId: string): string {
+  const base = model.view_kind === "snapshot" && model.snapshot_id
+    ? `/api/snapshots/${encodeURIComponent(model.snapshot_id)}`
+    : `/api/candidates/${encodeURIComponent(model.content_id)}`;
+  return `${base}/prototypes/${encodeURIComponent(assetId)}/`;
 }
 
-function ArtifactFrame({ candidateId, files, packageId, revision, asset }: {
-  candidateId: string;
-  files: PackageFile[];
-  packageId: string;
-  revision: number;
+function ArtifactFrame({ model, asset }: {
+  model: ViewerModel;
   asset: PackageAsset;
 }): ReactElement {
-  const file = files.find((candidate) => candidate.id === asset.file_id);
+  const file = model.files.find((candidate) => candidate.id === asset.file_id);
   return (
     <article className="artifact-frame" id={`item-${asset.id}`}>
       <div className="artifact-frame__header">
         <div>
           <p className="eyebrow">Selected artifact</p>
-          <h3><ItemLink packageId={packageId} itemId={asset.id}>{asset.id}</ItemLink></h3>
+          <h3><ItemLink packageId={model.package_id} itemId={asset.id}>{asset.id}</ItemLink></h3>
         </div>
         <div className="artifact-labels">
           <Chip tone={asset.authority === "authoritative" ? "info" : "neutral"}>{asset.authority}</Chip>
@@ -311,17 +405,17 @@ function ArtifactFrame({ candidateId, files, packageId, revision, asset }: {
       </div>
       <SafeMarkdown source={asset.purpose_md} />
       <dl className="artifact-metadata">
-        <div><dt>Package revision</dt><dd>{revision}</dd></div>
+        <div><dt>Package revision</dt><dd>{model.revision}</dd></div>
         <div><dt>Source file</dt><dd><code>{file?.path ?? asset.file_id}</code></dd></div>
         <div><dt>Format</dt><dd>{asset.format}</dd></div>
       </dl>
       {asset.format === "svg"
-        ? <figure><img alt={`Diagram: ${asset.purpose_md}`} src={assetUrl(candidateId, asset.id)} /><figcaption>Generated from the immutable candidate <code>{candidateId}</code>.</figcaption></figure>
+        ? <figure><img alt={`Diagram: ${asset.purpose_md}`} src={assetUrl(model, asset.id)} /><figcaption>Generated from the {model.view_kind === "snapshot" ? "pinned snapshot" : "working draft"} <code>{model.view_id}</code>.</figcaption></figure>
         : asset.format === "html"
-          ? <figure className="prototype-figure"><iframe data-testid={`prototype-${asset.id}`} referrerPolicy="no-referrer" sandbox="allow-scripts" src={prototypeUrl(candidateId, asset.id)} title={`Isolated mock prototype: ${asset.id}`} /><figcaption>The prototype is a sandboxed, candidate-scoped mock. It cannot access viewer controls or claim to operate the underlying product.</figcaption></figure>
+          ? <figure className="prototype-figure"><iframe data-testid={`prototype-${asset.id}`} referrerPolicy="no-referrer" sandbox="allow-scripts" src={prototypeUrl(model, asset.id)} title={`Isolated mock prototype: ${asset.id}`} /><figcaption>The prototype is a sandboxed, {model.view_kind === "snapshot" ? "snapshot-scoped" : "draft-scoped"} mock. It cannot access viewer controls or claim to operate the underlying product.</figcaption></figure>
           : <p className="artifact-unavailable" role="status">This viewer can describe the declared <code>{asset.format}</code> artifact, but cannot safely render it inline.</p>}
       <p className="applies-label">Governs or explains</p>
-      <ApplicabilityLinks packageId={packageId} itemIds={asset.applies_to} />
+      <ApplicabilityLinks packageId={model.package_id} itemIds={asset.applies_to} />
     </article>
   );
 }
@@ -337,7 +431,7 @@ function ArtifactList({ model, phase }: { model: ViewerModel; phase?: Phase }): 
           <h2 id="artifacts-heading">Designs and artifacts</h2>
         </div>
       </div>
-      {assets.map((asset) => <ArtifactFrame asset={asset} candidateId={model.content_id} files={model.files} key={asset.id} packageId={model.package_id} revision={model.revision} />)}
+      {assets.map((asset) => <ArtifactFrame asset={asset} key={asset.id} model={model} />)}
     </section>
   );
 }
@@ -415,7 +509,7 @@ function Overview({ model }: { model: ViewerModel }): ReactElement {
 function TargetDetail({ item, model }: { item: AddressedItem; model: ViewerModel }): ReactElement | null {
   if (item.kind === "phase" || item.kind === "criterion") return null;
   if (item.kind === "asset" && item.asset) {
-    return <section aria-label="Linked artifact" className="target-detail"><ArtifactFrame asset={item.asset} candidateId={model.content_id} files={model.files} packageId={model.package_id} revision={model.revision} /></section>;
+    return <section aria-label="Linked artifact" className="target-detail"><ArtifactFrame asset={item.asset} model={model} /></section>;
   }
   if (item.kind === "constraint" && item.constraint) {
     return <aside className="target-detail" id={`item-${item.id}`}><p className="eyebrow">Shared constraint</p><h2><ItemId packageId={model.package_id} itemId={item.id} /></h2><SafeMarkdown source={item.constraint.text_md} /></aside>;
@@ -463,6 +557,106 @@ function restoreViewport(snapshot: ViewportSnapshot): void {
   });
 }
 
+function selectionFromReference(reference: RuntimeViewReference): ViewSelection {
+  return reference.kind === "snapshot" && reference.snapshot_id
+    ? { kind: "snapshot", snapshotId: reference.snapshot_id }
+    : { kind: "draft" };
+}
+
+function viewName(model: ViewerModel): string {
+  if (model.view_kind === "snapshot") {
+    return model.acceptance_status === "illustrative" ? "Illustrative accepted snapshot" : model.acceptance_status === "accepted" ? "Accepted snapshot" : "Pinned snapshot";
+  }
+  return "Working draft";
+}
+
+function ViewSwitcher({ model, state, route }: { model: ViewerModel; state: RuntimeState; route: Route }): ReactElement {
+  const itemId = route.itemId && route.itemId !== "__invalid-route__" ? route.itemId : undefined;
+  const acceptedViews = [...new Map(state.acceptances.map((record) => [record.snapshot_id, record])).values()];
+  const defaultView = selectionFromReference(state.defaultView);
+  if (acceptedViews.length === 0 && model.view_kind === "draft") return <></>;
+  return (
+    <nav aria-label="Proposal views" className="view-switcher">
+      <p className="eyebrow">Proposal views</p>
+      <ul>
+        {state.currentCandidateId ? <li><a data-testid="view-draft" href={routeFor(model.package_id, itemId, { kind: "draft" })}>Working draft</a></li> : null}
+        {acceptedViews.map((record) => {
+          const selection: ViewSelection = { kind: "snapshot", snapshotId: record.snapshot_id };
+          return (
+            <li key={record.snapshot_id}>
+              <a data-testid={`view-snapshot-${record.snapshot_id}`} href={routeFor(model.package_id, itemId, selection)}>
+                {record.illustrative ? "Illustrative snapshot" : "Accepted snapshot"} · {record.record_id}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+      {model.view_kind === "snapshot" && model.snapshot_id && state.currentCandidateId
+        ? <p><a data-testid="compare-with-draft" href={comparisonRouteFor(model.package_id, model.snapshot_id, { kind: "draft" })}>Compare with working draft</a></p>
+        : null}
+      {model.view_kind === "draft" && defaultView.kind === "snapshot"
+        ? <p><a data-testid="view-default-snapshot" href={routeFor(model.package_id, itemId, defaultView)}>Open latest accepted snapshot</a></p>
+        : null}
+    </nav>
+  );
+}
+
+function comparisonValue(value: unknown | null): ReactElement {
+  if (value === null) return <span className="comparison-missing">Not present in this snapshot.</span>;
+  if (typeof value === "string") return <span className="comparison-text">{value}</span>;
+  return <pre className="comparison-json">{JSON.stringify(value, null, 2)}</pre>;
+}
+
+function comparisonAddress(change: ComparisonChange, plan: PlanPackage, older: boolean): string | undefined {
+  const items = itemIndex(plan);
+  const directlyAddressable = new Set(["constraint", "criterion", "decision", "phase", "question", "asset"]);
+  if (older && directlyAddressable.has(change.category)) return change.id;
+  return [change.id, ...change.affected_asset_ids, ...change.affected_item_ids].find((id) => items.has(id));
+}
+
+function ComparisonPanel({ comparison, model }: { comparison: ComparisonProjection; model: ViewerModel }): ReactElement {
+  const toView = modelView(model);
+  return (
+    <section aria-labelledby="comparison-heading" className="comparison-panel" data-testid="comparison-summary">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Revision review</p>
+          <h2 id="comparison-heading">Changes between saved proposals</h2>
+        </div>
+        <p>{comparison.material_change_count} material change{comparison.material_change_count === 1 ? "" : "s"}; {comparison.metadata_change_count} metadata change{comparison.metadata_change_count === 1 ? "" : "s"}.</p>
+      </div>
+      {comparison.unavailable_inputs.length > 0
+        ? <aside className="comparison-warning" role="alert"><strong>Some captured inputs are unavailable.</strong><ul>{comparison.unavailable_inputs.map((input) => <li key={`${input.snapshot_id}-${input.file_id}`}>{input.message} <code>{input.snapshot_id}</code></li>)}</ul></aside>
+        : null}
+      {comparison.changes.length === 0
+        ? <p data-testid="comparison-no-changes">The two snapshots contain the same reviewed content and captured files.</p>
+        : <ol className="comparison-list">
+          {comparison.changes.map((change) => {
+            const olderAddress = comparisonAddress(change, model.package, true);
+            const newerAddress = comparisonAddress(change, model.package, false);
+            const fromHref = change.kind === "added" ? null : routeFor(model.package_id, olderAddress, { kind: "snapshot", snapshotId: change.old_snapshot_id });
+            const toHref = change.kind === "removed" ? null : routeFor(model.package_id, newerAddress, toView);
+            return (
+              <li className={`comparison-change comparison-change--${change.classification}`} data-testid="comparison-change" key={`${change.category}-${change.id}`}>
+                <div className="comparison-change__header">
+                  <div><Chip tone={change.classification === "material" ? "info" : "neutral"}>{change.classification}</Chip> <strong>{change.category}</strong> <code>{change.id}</code></div>
+                  <Chip tone={change.kind === "changed" ? "warning" : change.kind === "removed" ? "error" : "info"}>{change.kind}</Chip>
+                </div>
+                <p>Changed fields: {change.fields.map((field) => <code key={field}>{field}</code>)}</p>
+                {change.affected_asset_ids.length > 0 ? <p>Related designs: {change.affected_asset_ids.map((assetId) => <code key={assetId}>{assetId}</code>)}</p> : null}
+                <div className="comparison-values">
+                  <div><h3>Older snapshot</h3>{comparisonValue(change.old_value)}{fromHref ? <p><a href={fromHref}>Open older item</a></p> : <p>Older item is not present.</p>}</div>
+                  <div><h3>Newer snapshot</h3>{comparisonValue(change.new_value)}{toHref ? <p><a href={toHref}>Open newer item</a></p> : <p>Item was removed.</p>}</div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>}
+      {comparison.diagnostics && comparison.diagnostics.length > 0 ? <DiagnosticPanel diagnostics={comparison.diagnostics} /> : null}
+    </section>
+  );
+}
+
 function ViewerHeader({ model, route, state, connection, transportError, onReload, loading }: {
   model: ViewerModel;
   route: Route;
@@ -478,7 +672,8 @@ function ViewerHeader({ model, route, state, connection, transportError, onReloa
       <div>
         <p className="eyebrow">Local Plan Package</p>
         <h1>{model.package.title}</h1>
-        <p className="header-meta"><Chip tone={model.acceptance_status === "accepted" ? "info" : "warning"}>{model.acceptance_status === "accepted" ? "Accepted snapshot" : model.acceptance_status === "illustrative" ? "Illustrative acceptance" : "Working proposal · acceptance unverified"}</Chip> <span>Viewing {selected}</span></p>
+        <p className="header-meta"><Chip tone={model.acceptance_status === "accepted" ? "info" : "warning"}>{viewName(model)}</Chip> <span>Viewing {selected}</span></p>
+        {model.acceptance_provenance ? <p className="acceptance-provenance" data-testid="acceptance-provenance">Recorded by <code>{model.acceptance_provenance.actor}</code> from <code>{model.acceptance_provenance.source}</code> on <time dateTime={model.acceptance_provenance.recorded_at}>{model.acceptance_provenance.recorded_at}</time>{model.acceptance_provenance.illustrative ? " · illustrative" : ""}.</p> : null}
       </div>
       <dl className="revision-summary">
         <div><dt>Package ID</dt><dd><code>{model.package_id}</code></dd></div>
@@ -490,13 +685,14 @@ function ViewerHeader({ model, route, state, connection, transportError, onReloa
       <div className="header-actions">
         <button disabled={loading} onClick={onReload} type="button">{loading ? "Reloading…" : "Reload package"}</button>
         <p>Declared package inputs refresh automatically; the last valid view remains during rejected edits.</p>
+        <ViewSwitcher model={model} route={route} state={state} />
         <RuntimeStatus connection={connection} state={state} transportError={transportError} />
       </div>
     </header>
   );
 }
 
-function LoadedViewer({ model, state, connection, transportError, navigationNotice, loading, onReload }: {
+function LoadedViewer({ model, state, connection, transportError, navigationNotice, loading, onReload, comparison }: {
   model: ViewerModel;
   state: RuntimeState;
   connection: ConnectionStatus;
@@ -504,6 +700,7 @@ function LoadedViewer({ model, state, connection, transportError, navigationNoti
   navigationNotice: string | null;
   loading: boolean;
   onReload: () => void;
+  comparison: ComparisonProjection | null;
 }): ReactElement {
   const [routeVersion, setRouteVersion] = useState(0);
   useEffect(() => {
@@ -529,12 +726,13 @@ function LoadedViewer({ model, state, connection, transportError, navigationNoti
       <ViewerHeader connection={connection} loading={loading} model={model} onReload={onReload} route={route} state={state} transportError={transportError} />
       <div className="viewer-layout">
         <aside className="viewer-sidebar">
-          <a className={!route.itemId ? "overview-link overview-link--active" : "overview-link"} href={routeFor(model.package_id)}>Overview</a>
+          <a className={!route.itemId ? "overview-link overview-link--active" : "overview-link"} href={routeFor(model.package_id, undefined, modelView(model))}>Overview</a>
           <PhaseNavigator packageId={model.package_id} phases={model.package.phases} selectedPhaseId={selectedPhase?.id} />
         </aside>
         <main id="viewer-main" tabIndex={-1}>
-          {routeError ? <aside className="route-error" data-testid="route-error" role="alert"><h2>Link target unavailable</h2><p>{routeError}</p><a href={routeFor(model.package_id)}>Return to package overview</a></aside> : null}
+          {routeError ? <aside className="route-error" data-testid="route-error" role="alert"><h2>Link target unavailable</h2><p>{routeError}</p><a href={routeFor(model.package_id, undefined, modelView(model))}>Return to package overview</a></aside> : null}
           {navigationNotice ? <aside className="navigation-notice" data-testid="navigation-notice" role="status"><h2>Navigation updated</h2><p>{navigationNotice}</p></aside> : null}
+          {comparison ? <ComparisonPanel comparison={comparison} model={model} /> : null}
           <DiagnosticPanel diagnostics={[
             ...state.diagnostics,
             ...state.planningBlockers,
@@ -575,33 +773,44 @@ function ViewerApp(): ReactElement {
   const [transportError, setTransportError] = useState<string | null>(null);
   const [connection, setConnection] = useState<ConnectionStatus>("connecting");
   const [navigationNotice, setNavigationNotice] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<ComparisonProjection | null>(null);
   const modelRef = useRef<ViewerModel | null>(null);
   const requestSequence = useRef(0);
 
   const applyModel = useCallback((nextModel: ViewerModel): void => {
     const previousModel = modelRef.current;
     let viewport: ViewportSnapshot | null = null;
-    if (previousModel && previousModel.content_id !== nextModel.content_id) {
+    const viewChanged = previousModel && (previousModel.content_id !== nextModel.content_id || previousModel.view_id !== nextModel.view_id);
+    if (viewChanged) {
       const route = parseRoute(window.location.hash);
       viewport = captureViewport(route);
-      const previousItems = itemIndex(previousModel.package);
+      const previousItems = previousModel ? itemIndex(previousModel.package) : new Map<string, AddressedItem>();
       const nextItems = itemIndex(nextModel.package);
-      if (route.packageId === previousModel.package_id && route.packageId !== nextModel.package_id) {
-        window.history.replaceState(null, "", routeFor(nextModel.package_id));
+      if (route.packageId === previousModel?.package_id && route.packageId !== nextModel.package_id) {
+        window.history.replaceState(null, "", routeFor(nextModel.package_id, undefined, modelView(nextModel)));
         window.dispatchEvent(new Event("hashchange"));
-        setNavigationNotice(`The package identity changed from '${previousModel.package_id}' to '${nextModel.package_id}'; showing the new package overview.`);
+        setNavigationNotice(`The package identity changed from '${previousModel?.package_id}' to '${nextModel.package_id}'; showing the new package overview.`);
         viewport.anchorId = null;
         viewport.anchorTop = null;
-      } else if (route.packageId === previousModel.package_id && route.itemId && !nextItems.has(route.itemId)) {
+      } else if (route.packageId === previousModel?.package_id && route.itemId && !nextItems.has(route.itemId)) {
         const removed = previousItems.get(route.itemId);
         const fallbackId = removed?.phase && nextItems.has(removed.phase.id) ? removed.phase.id : undefined;
-        window.history.replaceState(null, "", routeFor(nextModel.package_id, fallbackId));
+        window.history.replaceState(null, "", routeFor(nextModel.package_id, fallbackId, modelView(nextModel)));
         window.dispatchEvent(new Event("hashchange"));
         setNavigationNotice(removed
           ? `The selected ${removed.kind} '${removed.id}' was removed; showing ${fallbackId ? `surviving phase '${fallbackId}'` : "the package overview"}.`
           : `The selected item '${route.itemId}' was removed; showing ${fallbackId ? `surviving phase '${fallbackId}'` : "the package overview"}.`);
         viewport.anchorId = fallbackId ? `item-${fallbackId}` : null;
         viewport.anchorTop = fallbackId ? 0 : null;
+      }
+    }
+    const route = parseRoute(window.location.hash);
+    if (route.view.kind === "default" && nextModel.view_kind === "snapshot" && nextModel.snapshot_id && route.packageId === nextModel.package_id) {
+      const canonical = routeFor(nextModel.package_id, route.itemId && route.itemId !== "__invalid-route__" ? route.itemId : undefined, modelView(nextModel));
+      if (window.location.hash !== canonical.slice(1)) {
+        window.history.replaceState(null, "", canonical);
+        window.dispatchEvent(new Event("hashchange"));
+        setNavigationNotice("The latest accepted proposal is now pinned to its concrete snapshot link.");
       }
     }
     modelRef.current = nextModel;
@@ -614,26 +823,46 @@ function ViewerApp(): ReactElement {
     setLoading(true);
     setError(null);
     setTransportError(null);
+    setComparison(null);
     try {
       const nextState = revalidate
         ? await fetchJson<RuntimeState>("/api/reload", { method: "POST" })
         : await fetchJson<RuntimeState>("/api/state");
+      const route = parseRoute(window.location.hash);
       let nextModel: ViewerModel | null = null;
-      if (nextState.currentCandidateId) {
-        nextModel = await fetchJson<ViewerModel>(`/api/candidates/${encodeURIComponent(nextState.currentCandidateId)}/model`);
+      const selectedView = route.view.kind === "snapshot"
+        ? route.view
+        : route.view.kind === "draft"
+          ? route.view
+          : selectionFromReference(nextState.defaultView);
+      if (selectedView.kind === "snapshot") {
+        nextModel = await fetchJson<ViewerModel>(`/api/snapshots/${encodeURIComponent(selectedView.snapshotId)}/model`);
+      } else if (nextState.currentCandidateId) {
+        nextModel = route.view.kind === "draft"
+          ? await fetchJson<ViewerModel>("/api/draft/model")
+          : await fetchJson<ViewerModel>(`/api/candidates/${encodeURIComponent(nextState.currentCandidateId)}/model`);
+      }
+      let nextComparison: ComparisonProjection | null = null;
+      if (route.compare) {
+        const to = route.compare.toView.kind === "draft" ? "draft" : route.compare.toView.kind === "snapshot" ? route.compare.toView.snapshotId : "draft";
+        const comparisonResponse = await fetchJson<ComparisonResponse>(`/api/compare?from=${encodeURIComponent(route.compare.fromSnapshotId)}&to=${encodeURIComponent(to)}`);
+        nextComparison = comparisonResponse.value ? { ...comparisonResponse.value, diagnostics: comparisonResponse.diagnostics } : null;
       }
       if (requestId !== requestSequence.current) return;
       setState(nextState);
       if (nextModel) {
         applyModel(nextModel);
+        setComparison(nextComparison);
       } else {
         modelRef.current = null;
         setModel(null);
+        setComparison(null);
       }
     } catch (reason) {
       if (requestId !== requestSequence.current) return;
       const message = reason instanceof Error ? reason.message : "The local runtime could not be reached.";
-      if (modelRef.current) {
+      const pinnedRoute = parseRoute(window.location.hash).view.kind !== "default" || Boolean(parseRoute(window.location.hash).compare);
+      if (modelRef.current && !pinnedRoute) {
         setTransportError(message);
       } else {
         setError(message);
@@ -646,6 +875,12 @@ function ViewerApp(): ReactElement {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onHashChange = (): void => void load();
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, [load]);
 
   useEffect(() => {
@@ -679,7 +914,7 @@ function ViewerApp(): ReactElement {
     };
   }, [load]);
 
-  const displayState = state ?? { packageId: null, currentCandidateId: null, currentSnapshotId: null, currentRevision: null, diagnostics: [], planningBlockers: [], acceptances: [], acceptanceDiagnostics: [], lastAttempt: null } satisfies RuntimeState;
+  const displayState = state ?? { packageId: null, currentCandidateId: null, currentSnapshotId: null, currentRevision: null, defaultView: { kind: "draft", snapshot_id: null, candidate_id: null }, diagnostics: [], planningBlockers: [], acceptances: [], acceptanceDiagnostics: [], lastAttempt: null } satisfies RuntimeState;
   if (error) {
     return (
       <main className="runtime-empty">
@@ -694,7 +929,7 @@ function ViewerApp(): ReactElement {
     return <main className="runtime-empty" aria-busy="true"><h1>Loading package…</h1><RuntimeStatus connection={connection} state={state} transportError={transportError} /></main>;
   }
   if (!model) return <EmptyRuntime connection={connection} onRetry={() => void load()} state={state} transportError={transportError} />;
-  return <LoadedViewer connection={connection} loading={loading} model={model} navigationNotice={navigationNotice} onReload={() => void load(true)} state={displayState} transportError={transportError} />;
+  return <LoadedViewer comparison={comparison} connection={connection} loading={loading} model={model} navigationNotice={navigationNotice} onReload={() => void load(true)} state={displayState} transportError={transportError} />;
 }
 
 const root = document.getElementById("root");
