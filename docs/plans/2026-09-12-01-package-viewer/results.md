@@ -2,7 +2,7 @@
 
 Source plan: [W01 — Open and refresh a saved Plan Package](plan.md)
 
-The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 was implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at that accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P2's browser viewer was implemented and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9`; the native Browser annotation receipt/edit/reload loop is now also verified. [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) is open pending review/merge.
+The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 was implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at that accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P2's browser viewer was implemented and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9`; the native Browser annotation receipt/edit/reload loop is now also verified. [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged into `main` at `fbddbeef1f3ca293c59366f217df61f97a8e9276`.
 
 ## P1
 
@@ -63,11 +63,11 @@ The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 
 ### Delivery ledger
 
 - Implementation: complete in `9e3dc24d59ca5d5c4f38578031e02049323967e9` on `feat/package-viewer-phase-p2-viewer`; browser/viewer behavior and the native annotation receipt/edit/reload loop are locally verified.
-- Review/merge: [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) is open; awaiting review/merge.
-- Integration: not merged; P3 cannot begin until P2 is integrated.
+- Review/merge: [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged successfully.
+- Integration: observed on `main` at merge revision `fbddbeef1f3ca293c59366f217df61f97a8e9276`; P2 is integrated.
 
 ## P3
 
 No P3 refresh/recovery or performance outcome recorded.
 
-Next action: await [P2 PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) review/merge and integration before selecting P3.
+Next action: P2 is closed out; select and plan P3 separately when ready.
