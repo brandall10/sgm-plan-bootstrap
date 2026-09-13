@@ -13,6 +13,8 @@
   Detailed implementation outcomes, validation, decisions, and delivery history
   belong in `results.md`.
 - `docs/specs/` is read-only design input.
+- `README.md` is a user-facing quickstart/reference, not a required wholesale
+  context load. Read only the relevant section when a task needs it.
 
 ## Planning and execution
 
