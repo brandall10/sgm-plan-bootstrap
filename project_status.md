@@ -3,7 +3,7 @@
 **Updated:** 2026-09-13
 **Current state:** W01 is complete. W02 P1 is integrated in `main` via [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) at `864099f8`; W02 P2 and P3 are unstarted.
 **Recommended next work:** begin W02 P2 when execution is requested.
-**Active plan:** [W02 — Refine, accept, and reopen the same proposal](docs/plans/2026-09-13-01-proposal-acceptance/plan.md), with its checklist in root [status.md](status.md) and detailed evidence in [results.md](docs/plans/2026-09-13-01-proposal-acceptance/results.md).
+**Active plan:** [W02 — Refine, accept, and reopen the same proposal](docs/plans/2026-09-13-01-proposal-acceptance/plan.md), with its checklist in root [status.md](status.md) and durable phase summary in [results.md](docs/plans/2026-09-13-01-proposal-acceptance/results.md).
 
 **Goal:** make saved plans dependable to view and refine, then test focused context and retained results for the execution handoff.
 
