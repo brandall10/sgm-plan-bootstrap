@@ -8,4 +8,4 @@ P2: Read-only history/comparison APIs, concrete draft/snapshot routes, default a
 Validation: `npm run typecheck`, `npm run lint`, `npm test` (42 passed), `npm run test:e2e` (9 passed), `npm run build`, and `git diff --check` passed.
 Lesson: manifest state is legacy metadata; acceptance requires a durable record for the exact snapshot, while planning blockers remain reviewable but not ready.
 Delivery: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) merged into `main` at `864099f`.
-Next: review/accept the W02 P2 phase PR; P3 remains blocked on a real native annotation trial.
+Next: review/accept [PR #6](https://github.com/brandall10/sgm-plan-bootstrap/pull/6); P3 remains blocked on a real native annotation trial.

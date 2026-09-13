@@ -32,7 +32,7 @@ Next action: review/accept the W02 P2 phase PR. W01 is complete; its outcomes re
 
 - Implementation: `fd6eee9` adds history/snapshot/draft APIs, content comparison, concrete viewer routes, provenance, pinned assets, and regression coverage.
 - Validation: `npm run typecheck`, `npm run lint`, `npm test` (42 passed), `npm run test:e2e` (9 passed), `npm run build`, and `git diff --check` passed.
-- Review/merge: phase branch is ready for the W02 P2 pull request; do not merge until accepted.
+- Review/merge: [PR #6](https://github.com/brandall10/sgm-plan-bootstrap/pull/6) is open; do not merge until accepted.
 
 ## P3 — Demonstrate the complete review/refinement loop
 
