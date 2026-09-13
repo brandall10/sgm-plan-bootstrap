@@ -29,7 +29,7 @@ Rows are candidate plans, not implementation phases. They may be combined, split
 
 The user selected W02 on 2026-09-13 after W01 completion. Preserve complete reviewed proposals and their acceptance provenance, reopen exact accepted content after later edits/restart, and compare material changes. The [proposal](docs/plans/2026-09-13-01-proposal-acceptance/plan.md) has three dependent phases: storage/acceptance, viewer/history/comparison, and the complete native review trial. Selection authorizes planning only.
 
-User approval on 2026-09-13 accepted the settled plan and checklist. Root [status.md](status.md) owns W02's active execution checklist; the [companion](docs/plans/2026-09-13-01-proposal-acceptance/status.md) mirrors the accepted baseline and current delivery state. [Results](docs/plans/2026-09-13-01-proposal-acceptance/results.md) record P1 implementation and verification separately from pending review/merge. W01 completion remains in its results, project memory, and Git history. Next action: deliver the W02 P1 PR.
+User approval on 2026-09-13 accepted the settled plan and checklist. Root [status.md](status.md) owns W02's active execution checklist. [Results](docs/plans/2026-09-13-01-proposal-acceptance/results.md) record P1 implementation and verification separately from pending review/merge. W01 completion remains in its results, project memory, and Git history. Next action: deliver the W02 P1 PR.
 
 ## Historical planning brief — W01
 
@@ -123,7 +123,7 @@ Broader SGM comprehension and change-analysis goals remain relevant, but this ro
 ### W02 acceptance — 2026-09-13
 
 - The user explicitly approved the reviewed plan and checklist. Re-read the complete planning set; no changes to the reviewed plan scope were present. The plan remains unchanged.
-- Accepted and committed W02 as the active plan with the root checklist, reconciled companion checklist, and results record in one documentation acceptance set. All 11 tasks remain unchecked; implementation has not started. W01 results and accepted plan are preserved.
+- Accepted and committed W02 as the active plan with the root checklist and results record in one documentation acceptance set. All 11 tasks remained unchecked at acceptance; implementation had not started. W01 results and accepted plan are preserved.
 - Next action: `status-next` when execution is requested. Approval of this plan did not execute a phase.
 
 ### W02 P1 implementation — 2026-09-13
