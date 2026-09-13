@@ -13,6 +13,7 @@ import type {
   PlanPackage,
   Question,
 } from "../core/package.js";
+import type { AcceptanceRecord } from "../core/snapshot.js";
 import { SafeMarkdown } from "./safe-markdown.js";
 
 import "./styles.css";
@@ -22,16 +23,24 @@ interface ViewerModel {
   package_id: string;
   revision: number;
   content_id: string;
-  readiness: "resolved";
+  readiness: "reviewable" | "reviewable-with-planning-blockers";
+  acceptance_status: "unverified" | "accepted" | "illustrative";
   diagnostics: Diagnostic[];
+  planning_blockers: Diagnostic[];
   files: PackageFile[];
+  snapshot_id: string | null;
+  acceptances: AcceptanceRecord[];
 }
 
 interface RuntimeState {
   packageId: string | null;
   currentCandidateId: string | null;
+  currentSnapshotId: string | null;
   currentRevision: number | null;
   diagnostics: Diagnostic[];
+  planningBlockers: Diagnostic[];
+  acceptances: AcceptanceRecord[];
+  acceptanceDiagnostics: Diagnostic[];
   lastAttempt: "published" | "rejected" | null;
 }
 
@@ -464,19 +473,19 @@ function ViewerHeader({ model, route, state, connection, transportError, onReloa
   loading: boolean;
 }): ReactElement {
   const selected = route.itemId ? "linked item" : "overview";
-  const stateLabel = model.package.state === "accepted" ? "Accepted proposal" : "Draft proposal";
   return (
     <header className="plan-header">
       <div>
         <p className="eyebrow">Local Plan Package</p>
         <h1>{model.package.title}</h1>
-        <p className="header-meta"><Chip tone={model.package.state === "accepted" ? "info" : "warning"}>{stateLabel}</Chip> <span>Viewing {selected}</span></p>
+        <p className="header-meta"><Chip tone={model.acceptance_status === "accepted" ? "info" : "warning"}>{model.acceptance_status === "accepted" ? "Accepted snapshot" : model.acceptance_status === "illustrative" ? "Illustrative acceptance" : "Working proposal · acceptance unverified"}</Chip> <span>Viewing {selected}</span></p>
       </div>
       <dl className="revision-summary">
         <div><dt>Package ID</dt><dd><code>{model.package_id}</code></dd></div>
         <div><dt>Author revision</dt><dd data-testid="current-revision">{model.revision}</dd></div>
         <div><dt>Content ID</dt><dd data-testid="content-id"><code>{model.content_id}</code></dd></div>
-        <div><dt>Readiness</dt><dd><Chip tone="info">{model.readiness}</Chip></dd></div>
+        <div><dt>Snapshot ID</dt><dd><code>{model.snapshot_id ?? "not persisted"}</code></dd></div>
+        <div><dt>Readiness</dt><dd><Chip tone={model.readiness === "reviewable" ? "info" : "warning"}>{model.readiness}</Chip></dd></div>
       </dl>
       <div className="header-actions">
         <button disabled={loading} onClick={onReload} type="button">{loading ? "Reloading…" : "Reload package"}</button>
@@ -526,7 +535,13 @@ function LoadedViewer({ model, state, connection, transportError, navigationNoti
         <main id="viewer-main" tabIndex={-1}>
           {routeError ? <aside className="route-error" data-testid="route-error" role="alert"><h2>Link target unavailable</h2><p>{routeError}</p><a href={routeFor(model.package_id)}>Return to package overview</a></aside> : null}
           {navigationNotice ? <aside className="navigation-notice" data-testid="navigation-notice" role="status"><h2>Navigation updated</h2><p>{navigationNotice}</p></aside> : null}
-          <DiagnosticPanel diagnostics={[...state.diagnostics, ...model.diagnostics.filter((diagnostic) => !state.diagnostics.some((stateDiagnostic) => stateDiagnostic.code === diagnostic.code && stateDiagnostic.path === diagnostic.path))]} />
+          <DiagnosticPanel diagnostics={[
+            ...state.diagnostics,
+            ...state.planningBlockers,
+            ...state.acceptanceDiagnostics,
+            ...model.diagnostics.filter((diagnostic) => !state.diagnostics.some((stateDiagnostic) => stateDiagnostic.code === diagnostic.code && stateDiagnostic.path === diagnostic.path)),
+            ...model.planning_blockers.filter((diagnostic) => !state.planningBlockers.some((stateDiagnostic) => stateDiagnostic.code === diagnostic.code && stateDiagnostic.path === diagnostic.path)),
+          ]} />
           {selectedPhase ? <PhaseDetail highlightedCriterionId={selected?.criterion?.id} model={model} phase={selectedPhase} /> : <Overview model={model} />}
           {selected && !selectedPhase ? <TargetDetail item={selected} model={model} /> : null}
         </main>
@@ -664,7 +679,7 @@ function ViewerApp(): ReactElement {
     };
   }, [load]);
 
-  const displayState = state ?? { packageId: null, currentCandidateId: null, currentRevision: null, diagnostics: [], lastAttempt: null } satisfies RuntimeState;
+  const displayState = state ?? { packageId: null, currentCandidateId: null, currentSnapshotId: null, currentRevision: null, diagnostics: [], planningBlockers: [], acceptances: [], acceptanceDiagnostics: [], lastAttempt: null } satisfies RuntimeState;
   if (error) {
     return (
       <main className="runtime-empty">

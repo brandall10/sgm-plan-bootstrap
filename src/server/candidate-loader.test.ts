@@ -80,7 +80,7 @@ describe("candidate loading and publication", () => {
     expect(diagnosticCodes(missingResult)).toContain("missing-file");
   });
 
-  it("keeps unresolved blocking questions out of the valid-revision path", async () => {
+  it("keeps unresolved blocking questions visible without rejecting a coherent review candidate", async () => {
     const fixture = await copyFixture("save-outcome");
     const manifestPath = join(fixture.packageRoot, "plan.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
@@ -95,8 +95,8 @@ describe("candidate loading and publication", () => {
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     const result = await loadCandidate({ packageRoot: fixture.packageRoot });
 
-    expect(result.candidate).toBeNull();
-    expect(diagnosticCodes(result)).toContain("blocking-question");
+    expect(result.candidate).not.toBeNull();
+    expect(result.planningBlockers.map((diagnostic) => diagnostic.code)).toContain("blocking-question");
   });
 
   it("rejects traversal and symlink escapes before serving bytes", async () => {

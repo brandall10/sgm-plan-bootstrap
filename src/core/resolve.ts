@@ -19,6 +19,8 @@ export interface PackageResolution {
   complete: boolean;
   files: Map<string, ResolvedFile>;
   diagnostics: Diagnostic[];
+  planningBlockers: Diagnostic[];
+  fileDiagnostics: Map<string, Diagnostic>;
 }
 
 function requiredFileIds(plan: PlanPackage): Set<string> {
@@ -28,16 +30,18 @@ function requiredFileIds(plan: PlanPackage): Set<string> {
     if (reference.kind === "external" && reference.required && reference.local_file_id) required.add(reference.local_file_id);
   }
   for (const asset of plan.assets) {
-    if (asset.required) {
-      required.add(asset.file_id);
-      for (const dependency of asset.dependency_file_ids) required.add(dependency);
-    }
+    // A selected asset governs the proposal even when an older manifest
+    // omitted `required`; retain its primary file and dependency closure.
+    required.add(asset.file_id);
+    for (const dependency of asset.dependency_file_ids) required.add(dependency);
   }
   return required;
 }
 
 export async function resolvePackageFiles(plan: PlanPackage, resolver: FileResolver): Promise<PackageResolution> {
   const diagnostics: Diagnostic[] = [];
+  const planningBlockers: Diagnostic[] = [];
+  const fileDiagnostics = new Map<string, Diagnostic>();
   const files = new Map<string, ResolvedFile>();
   const required = requiredFileIds(plan);
   const results = await Promise.all(plan.files.map(async (file) => ({ file, result: await resolver.resolve(file) })));
@@ -48,15 +52,20 @@ export async function resolvePackageFiles(plan: PlanPackage, resolver: FileResol
         ? result
         : { ...result, severity: required.has(file.id) ? "error" : result.severity } satisfies Diagnostic;
       diagnostics.push({ ...diagnostic, itemId: diagnostic.itemId ?? file.id });
+      fileDiagnostics.set(file.id, { ...diagnostic, itemId: diagnostic.itemId ?? file.id });
       continue;
     }
-    if (result.bytes.byteLength === 0 && file.required) {
-      diagnostics.push(errorDiagnostic("empty-required-file", `Required file '${file.path}' is empty.`, `files.${file.id}`, file.id));
+    if (result.bytes.byteLength === 0 && required.has(file.id)) {
+      const diagnostic = errorDiagnostic("empty-required-file", `Required file '${file.path}' is empty.`, `files.${file.id}`, file.id);
+      diagnostics.push(diagnostic);
+      fileDiagnostics.set(file.id, diagnostic);
       continue;
     }
     const actualDigest = await resolverDigest(result.bytes);
     if (actualDigest !== file.sha256) {
-      diagnostics.push(errorDiagnostic("digest-mismatch", `Digest for '${file.path}' does not match the published manifest.`, `files.${file.id}.sha256`, file.id));
+      const diagnostic = errorDiagnostic("digest-mismatch", `Digest for '${file.path}' does not match the published manifest.`, `files.${file.id}.sha256`, file.id);
+      diagnostics.push(diagnostic);
+      fileDiagnostics.set(file.id, diagnostic);
       continue;
     }
     files.set(file.id, result);
@@ -72,13 +81,13 @@ export async function resolvePackageFiles(plan: PlanPackage, resolver: FileResol
 
   for (const question of plan.questions) {
     if (question.status === "open" && question.blocking) {
-      diagnostics.push(errorDiagnostic("blocking-question", `Blocking question '${question.title}' is unresolved.`, `questions.${question.id}`, question.id));
+      planningBlockers.push(errorDiagnostic("blocking-question", `Blocking question '${question.title}' is unresolved.`, `questions.${question.id}`, question.id));
     } else if (question.status === "open") {
       diagnostics.push(warningDiagnostic("open-question", `Non-blocking question '${question.title}' remains open.`, `questions.${question.id}`, question.id));
     }
   }
 
-  return { complete: !hasErrors(diagnostics), files, diagnostics };
+  return { complete: !hasErrors(diagnostics), files, diagnostics, planningBlockers, fileDiagnostics };
 }
 
 async function resolverDigest(bytes: Uint8Array): Promise<string> {

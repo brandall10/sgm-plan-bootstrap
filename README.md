@@ -35,7 +35,7 @@ Do not write completion marks, run results, implementation notes, roadmap IDs, o
 
 The specs describe richer plan/execution records that the product may eventually maintain. Those future structures do not replace these two memory files during this experiment.
 
-Root status.md and project_status.md belong in version control and must not be ignored. Before resetting it, move consequential findings, progress, decisions, and evidence links into project_status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning.
+Root status.md and project_status.md belong in version control and must not be ignored. Before resetting it, move consequential findings, progress, decisions, and evidence links into project_status.md. Root status.md is the one active execution checklist; plan directories contain plan.md and, when needed, results.md, but must not contain another status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning; treat any plan-local status.md as a stale duplicate to reconcile and remove.
 
 ## Planning and execution conventions
 
@@ -80,6 +80,12 @@ fixtures describe proposals only; their mock controls and diagrams are not
 evidence of a working exercise product. After changing a declared package
 file, republish its manifest atomically with `npm run publish -- --package
 <package-directory>`.
+
+The runtime creates an ignored `.plan-package/` directory beside the selected
+package. It stores immutable snapshot descriptors and bytes before a candidate
+is displayed. Use the explicit `npm run accept -- ...` command documented in
+[the package format guide](docs/package-format.md#durable-snapshots-and-acceptance)
+to record authorized acceptance provenance for a concrete snapshot.
 
 Run the local verification suite with `npm run typecheck`, `npm run lint`,
 `npm test`, `npm run test:e2e`, and `npm run build`. Use `npm run measure` for

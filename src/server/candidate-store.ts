@@ -1,10 +1,12 @@
 import type { Diagnostic } from "../core/diagnostics.js";
 import { errorDiagnostic } from "../core/diagnostics.js";
-import { posix } from "node:path";
+import { join, posix } from "node:path";
 
 import type { PackageAsset, PackageFile, PlanPackage } from "../core/package.js";
+import type { AcceptanceRecord } from "../core/snapshot.js";
 import { loadCandidate, type CandidateLoadOptions, type LoadedCandidate } from "./candidate-loader.js";
 import { contentTypeForPath } from "./paths.js";
+import { SnapshotStore, type StoredSnapshot } from "./snapshot-store.js";
 
 export interface RuntimeFileResponse {
   bytes: Uint8Array;
@@ -23,16 +25,24 @@ export interface RuntimeModel {
   package_id: string;
   revision: number;
   content_id: string;
-  readiness: "resolved";
+  readiness: "reviewable" | "reviewable-with-planning-blockers";
+  acceptance_status: "unverified" | "accepted" | "illustrative";
   diagnostics: Diagnostic[];
+  planning_blockers: Diagnostic[];
   files: PackageFile[];
+  snapshot_id: string | null;
+  acceptances: AcceptanceRecord[];
 }
 
 export interface RuntimeState {
   packageId: string | null;
   currentCandidateId: string | null;
+  currentSnapshotId: string | null;
   currentRevision: number | null;
   diagnostics: Diagnostic[];
+  planningBlockers: Diagnostic[];
+  acceptances: AcceptanceRecord[];
+  acceptanceDiagnostics: Diagnostic[];
   /** Outcome of the most recent candidate load attempt. */
   lastAttempt: "published" | "rejected" | null;
 }
@@ -48,10 +58,31 @@ export class CandidateStore {
   private readonly candidates = new Map<string, LoadedCandidate>();
   private currentCandidateId: string | null = null;
   private lastDiagnostics: Diagnostic[] = [];
+  private lastPlanningBlockers: Diagnostic[] = [];
+  private acceptances: AcceptanceRecord[] = [];
+  private acceptanceDiagnostics: Diagnostic[] = [];
   private lastAttempt: RuntimeState["lastAttempt"] = null;
   private readonly listeners = new Set<RuntimeChangeListener>();
   private loadGeneration = 0;
   private loadQueue: Promise<void> = Promise.resolve();
+  private readonly snapshotStores = new Map<string, SnapshotStore>();
+
+  private storeFor(options: CandidateLoadOptions): SnapshotStore {
+    if (options.snapshotStore) return options.snapshotStore;
+    const root = join(options.packageRoot, ".plan-package");
+    const existing = this.snapshotStores.get(root);
+    if (existing) return existing;
+    const store = new SnapshotStore({ root });
+    this.snapshotStores.set(root, store);
+    return store;
+  }
+
+  private acceptanceStatus(snapshotId: string | undefined): RuntimeModel["acceptance_status"] {
+    if (!snapshotId) return "unverified";
+    if (this.acceptances.some((record) => record.snapshot_id === snapshotId && !record.illustrative)) return "accepted";
+    if (this.acceptances.some((record) => record.snapshot_id === snapshotId && record.illustrative)) return "illustrative";
+    return "unverified";
+  }
 
   async loadAndPublish(options: CandidateLoadOptions): Promise<LoadedCandidate | null> {
     const generation = ++this.loadGeneration;
@@ -68,6 +99,7 @@ export class CandidateStore {
             error instanceof Error ? error.message : "The package candidate could not be loaded.",
             "plan.json",
           )],
+          planningBlockers: [],
         };
       }
 
@@ -77,16 +109,47 @@ export class CandidateStore {
       if (generation !== this.loadGeneration) return null;
 
       this.lastDiagnostics = [...result.diagnostics];
+      this.lastPlanningBlockers = [...result.planningBlockers];
       if (!result.candidate) {
         this.lastAttempt = "rejected";
         this.notify({ kind: "candidate-rejected", state: this.getState() });
         return null;
       }
-      this.candidates.set(result.candidate.contentId, result.candidate);
-      this.currentCandidateId = result.candidate.contentId;
+      let descriptor;
+      const snapshotStore = this.storeFor(options);
+      try {
+        descriptor = await snapshotStore.persist({
+          packageId: result.candidate.packageId,
+          revision: result.candidate.revision,
+          contentId: result.candidate.contentId,
+          manifestBytes: result.candidate.manifestBytes,
+          plan: result.candidate.plan,
+          files: result.candidate.files,
+          snapshotFiles: result.candidate.snapshotFiles,
+          snapshotOmissions: result.candidate.snapshotOmissions,
+        });
+      } catch (error) {
+        this.lastDiagnostics = [
+          ...result.diagnostics,
+          errorDiagnostic(
+            "snapshot-persistence-failed",
+            error instanceof Error ? error.message : "The valid candidate could not be persisted as a durable snapshot.",
+            ".plan-package",
+          ),
+        ];
+        this.lastAttempt = "rejected";
+        this.notify({ kind: "candidate-rejected", state: this.getState() });
+        return null;
+      }
+      const history = await snapshotStore.listAcceptances(result.candidate.packageId);
+      this.acceptances = [...history.records];
+      this.acceptanceDiagnostics = [...history.diagnostics];
+      const candidate: LoadedCandidate = { ...result.candidate, snapshotId: descriptor.snapshot_id };
+      this.candidates.set(candidate.contentId, candidate);
+      this.currentCandidateId = candidate.contentId;
       this.lastAttempt = "published";
       this.notify({ kind: "candidate-published", state: this.getState() });
-      return result.candidate;
+      return candidate;
     });
     this.loadQueue = queuedLoad.then(() => undefined, () => undefined);
     return queuedLoad;
@@ -117,9 +180,13 @@ export class CandidateStore {
       package_id: candidate.packageId,
       revision: candidate.revision,
       content_id: candidate.contentId,
-      readiness: "resolved",
+      readiness: candidate.planningBlockers.length > 0 ? "reviewable-with-planning-blockers" : "reviewable",
+      acceptance_status: this.acceptanceStatus(candidate.snapshotId),
       diagnostics: candidate.diagnostics,
+      planning_blockers: [...candidate.planningBlockers],
       files: [...candidate.files.values()].map(({ file }) => ({ ...file })),
+      snapshot_id: candidate.snapshotId ?? null,
+      acceptances: [...this.acceptances],
     };
   }
 
@@ -178,9 +245,21 @@ export class CandidateStore {
     return {
       packageId: current?.packageId ?? null,
       currentCandidateId: current?.contentId ?? null,
+      currentSnapshotId: current?.snapshotId ?? null,
       currentRevision: current?.revision ?? null,
       diagnostics: [...this.lastDiagnostics],
+      planningBlockers: [...this.lastPlanningBlockers],
+      acceptances: [...this.acceptances],
+      acceptanceDiagnostics: [...this.acceptanceDiagnostics],
       lastAttempt: this.lastAttempt,
     };
+  }
+
+  async openSnapshot(options: CandidateLoadOptions, snapshotId: string): Promise<StoredSnapshot> {
+    const result = await this.storeFor(options).open(snapshotId);
+    if (!result.snapshot) {
+      throw new Error(result.diagnostics.map((diagnostic) => diagnostic.message).join("; ") || `Snapshot '${snapshotId}' is unavailable.`);
+    }
+    return result.snapshot;
   }
 }
