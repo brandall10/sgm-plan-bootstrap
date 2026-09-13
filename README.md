@@ -45,6 +45,7 @@ npm run accept -- ...
 - [Package format and runtime usage](docs/package-format.md)
 - [Architecture and boundaries](docs/architecture.md)
 - [Native-surface findings](docs/native-surface-probe.md)
+- [W02 P3 native review trial](docs/p3-native-review-trial.md)
 - [Full design specifications](docs/specs/)
 - [Current roadmap and state](project_status.md)
 - [Current plan checklist](status.md)

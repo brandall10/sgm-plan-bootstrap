@@ -4,9 +4,9 @@ Source plan: [W02 plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md)
 
 Results: [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)
 
-State: W02 P1 and P2 are integrated in `main`; P3 remains unstarted and blocked pending a real native annotation.
+State: W02 P1 and P2 are integrated in `main`; P3 implementation and required verification are complete, with review pending.
 
-Next action: obtain a real native annotation, then begin P3. Do not start P3 implementation until that prerequisite is available. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
+Next action: review and accept the W02 P3 phase PR. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
 
 ## P1 — Durable snapshots and explicit acceptance
 
@@ -37,8 +37,13 @@ Next action: obtain a real native annotation, then begin P3. Do not start P3 imp
 
 ## P3 — Demonstrate the complete review/refinement loop
 
-- [ ] P3-T1 — Demonstrate illustrative acceptance, later edits, and exact reopening.
-- [ ] P3-T2 — Receive and resolve real native feedback with explicit stale-target handling.
-- [ ] P3-T3 — Complete documentation, independent verification, and reopen/comparison measurements.
+- [x] P3-T1 — Demonstrate illustrative acceptance, later edits, and exact reopening.
+- [x] P3-T2 — Receive and resolve real native feedback with explicit stale-target handling.
+- [x] P3-T3 — Complete documentation, independent verification, and reopen/comparison measurements.
 
-Potential execution dependency: P3 requires a real native annotation. No implementation checks or native trial have run for W02.
+## P3 delivery note
+
+- Native receipt and refinement evidence: [W02 P3 native review trial](docs/p3-native-review-trial.md); the illustrative accepted snapshot remains separate from the refined draft.
+- Validation: `npm run typecheck`, `npm run lint`, `npm test` (43 passed), `npm run test:e2e` (9 passed), `npm run build`, `npm run measure`, and `git diff --check` passed.
+- Stale-target handling uses explicit automated simulation; it is recorded separately from the actual native Browser comment and does not claim a second host annotation.
+- Review: implementation branch is ready for its phase PR; integration remains pending review/acceptance.

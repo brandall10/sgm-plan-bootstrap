@@ -186,6 +186,21 @@ surviving phase or the package overview and explains the fallback. A candidate t
 is no longer available after a runtime restart is reported as unavailable rather
 than silently showing a different candidate.
 
+### Native feedback trial
+
+Native feedback remains in the host annotation surface or conversation; the local
+viewer does not invent an annotation transport. For a review trial, record the
+concrete snapshot ID and stable item ID shown by the viewer, interpret the comment
+against that snapshot, and apply compatible changes to the working package. Publish
+the complete draft, then compare the old snapshot with `draft` so the accepted bytes,
+changed item, and retained prototype dependencies remain separately inspectable.
+
+If feedback names a changed or removed item, do not silently reinterpret it against
+the current draft. Account for it as stale, deferred, or unresolved and retain the
+source snapshot link. Automated browser checks can exercise stale-target fallback,
+but they do not establish that a native annotation reached the agent. Keep actual
+host-receipt evidence separate from those simulated checks.
+
 ### Refresh troubleshooting
 
 If the viewer says it is showing the last valid revision, inspect `/api/state` and

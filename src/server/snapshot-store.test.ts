@@ -1,4 +1,5 @@
 import { cp, mkdtemp, readFile, unlink, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -54,12 +55,36 @@ describe("durable plan snapshots", () => {
     expect(reopened.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
   });
 
+  it("reopens retained repository-root bytes after the original source is removed", async () => {
+    const fixture = await copyFixture("save-outcome");
+    const temporaryRepositoryRoot = await mkdtemp(join(tmpdir(), "plan-repository-root-"));
+    const repositoryFilePath = join(temporaryRepositoryRoot, "handoff-notes.md");
+    const repositoryBytes = new TextEncoder().encode("Retained handoff source for the P3 trial.\n");
+    await writeFile(repositoryFilePath, repositoryBytes);
+
+    const manifestPath = join(fixture.packageRoot, "plan.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { files: Array<{ id: string; root: string; path: string; sha256: string }> };
+    const firstFile = manifest.files[0];
+    if (!firstFile) throw new Error("Fixture has no files.");
+    firstFile.root = "repository";
+    firstFile.path = "handoff-notes.md";
+    firstFile.sha256 = createHash("sha256").update(repositoryBytes).digest("hex");
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const candidate = await new CandidateStore().loadAndPublish({ packageRoot: fixture.packageRoot, repositoryRoot: temporaryRepositoryRoot });
+    if (!candidate?.snapshotId) throw new Error("Repository-root candidate should publish.");
+    await unlink(repositoryFilePath);
+
+    const reopened = await new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") }).open(candidate.snapshotId);
+    expect(reopened.snapshot?.getFileBytes(firstFile.id)).toEqual(repositoryBytes);
+    expect(reopened.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
+  });
+
   it("converges concurrent identical writes and retains repository-root bytes", async () => {
     const fixture = await copyFixture("save-outcome");
     const manifestPath = join(fixture.packageRoot, "plan.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { files: Array<{ id: string; root: string; path: string; sha256: string }> };
     const repositoryBytes = new Uint8Array(await readFile(join(repositoryRoot, "README.md")));
-    const { createHash } = await import("node:crypto");
     const firstFile = manifest.files[0];
     if (!firstFile) throw new Error("Fixture has no files.");
     firstFile.root = "repository";
