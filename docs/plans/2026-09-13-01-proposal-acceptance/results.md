@@ -2,9 +2,9 @@
 
 Source plan: [W02 — Refine, accept, and reopen the same proposal](plan.md)
 
-State: P1 implementation and required local verification are complete; the user approved PR #4 and merge/integration are pending. The accepted plan remains unchanged at `2411338f9f288fc31be67f9eb63d57ff21567220`.
+State: P1 implementation and required local verification are complete; PR #4 is merged and integration is verified. The accepted plan remains unchanged at `2411338f9f288fc31be67f9eb63d57ff21567220`.
 
-Next action: merge PR #4 against `main`; then record remote and local integration only after it is observed.
+Next action: P2 remains unstarted; run `status-next` when execution is requested.
 
 ## P1
 
@@ -31,12 +31,13 @@ Next action: merge PR #4 against `main`; then record remote and local integratio
 - Blocking planning questions are persisted and displayed separately from structural/file-integrity failures. They produce `reviewable-with-planning-blockers`, not a publish rejection or executable-ready claim.
 - Snapshot IDs are full SHA-256 digests over exact manifest bytes plus deterministic inventory; acceptance records are append-only and no automatic pruning is added. P2 still owns pinned snapshot selection, comparison UI, and retained-view routes.
 - Native feedback, stale-target handling, and reopen/comparison measurements remain P3 obligations; no P1 blocker was encountered.
+- The unintended plan-local status checklist was removed; root `status.md` is the sole active checklist and the repository README documents that ownership.
 
 ### Delivery
 
 - Implementation: complete and verified locally.
-- Review/merge: the user approved [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4), which is open against `main` at head `d403f37656ec56a6c714250c7647828d126751fa`; merge is pending.
-- Integration: not merged into `main`.
+- Review/merge: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) merged into `main` at `864099f8a8772d5126df5fb3b1a593f5e3158d32`.
+- Integration: verified in local and remote `main` at `864099f8a8772d5126df5fb3b1a593f5e3158d32`.
 
 ## P2
 

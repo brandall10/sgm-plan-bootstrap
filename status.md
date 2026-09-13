@@ -4,9 +4,9 @@ Source plan: [W02 plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md)
 
 Results: [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)
 
-State: W02 P1 implemented and locally verified; PR #4 is approved and merge/integration is pending.
+State: W02 P1 is integrated in `main` via PR #4.
 
-Next action: merge PR #4, then reconcile remote and local integration. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
+Next action: W02 P2 is next; run `status-next` when execution is requested. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
 
 ## P1 — Durable snapshots and explicit acceptance
 
@@ -18,8 +18,8 @@ Next action: merge PR #4, then reconcile remote and local integration. W01 is co
 ## P1 delivery note
 
 - Implementation and required local verification passed in `7a1dd15de47920ddd811296e88b14508d8c4463b`, based on accepted plan/main `2411338f9f288fc31be67f9eb63d57ff21567220`.
-- Review/merge: the user approved [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4); merge is pending at head `d403f37656ec56a6c714250c7647828d126751fa`.
-- Integration: not yet merged into local or remote `main`.
+- Review/merge: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) merged into `main` at `864099f8a8772d5126df5fb3b1a593f5e3158d32`.
+- Integration: verified in local and remote `main` at `864099f8a8772d5126df5fb3b1a593f5e3158d32`; P1 is integrated.
 
 ## P2 — Reopen and compare accepted proposals
 
