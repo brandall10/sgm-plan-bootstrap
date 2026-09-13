@@ -2,7 +2,7 @@
 
 Source plan: [W01 — Open and refresh a saved Plan Package](plan.md)
 
-The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 is implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at the same accepted revision. Review/merge and integration evidence are pending.
+The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 is implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at the same accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open against `main`; merge and integration evidence are pending.
 
 ## P1
 
@@ -29,9 +29,9 @@ The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 
 ### Delivery ledger
 
 - Implementation: verified locally and committed on `feat/package-viewer-phase-p1-core`.
-- Review/merge: no PR opened yet; the initial GitHub API query could not connect to `api.github.com`.
+- Review/merge: [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open against `main`; merge is not authorized or observed.
 - Integration: not observed.
-- Next action: push the phase branch and open a scoped PR against `main`; wait for integration before selecting P2.
+- Next action: await review/merge of PR #1; wait for integration before selecting P2.
 
 ## P2
 
