@@ -1,12 +1,12 @@
 # W02 — Refine, accept, and reopen the same proposal
 
-Source plan: [W02 plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md)
+Source plan: [W02 plan](plan.md)
 
-Results: [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)
+Results: [W02 results](results.md)
 
 State: Accepted and active; implementation has not started.
 
-Next action: `status-next` begins P1 when execution is requested. W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
+Next action: `status-next` begins P1 when execution is requested. The active execution checklist is [root status.md](../../../status.md); this companion retains the accepted checklist baseline.
 
 ## P1 — Durable snapshots and explicit acceptance
 
