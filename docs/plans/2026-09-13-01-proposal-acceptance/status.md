@@ -4,16 +4,20 @@ Source plan: [W02 plan](plan.md)
 
 Results: [W02 results](results.md)
 
-State: Accepted and active; implementation has not started.
+State: W02 P1 implemented and locally verified; PR delivery is pending.
 
-Next action: `status-next` begins P1 when execution is requested. The active execution checklist is [root status.md](../../../status.md); this companion retains the accepted checklist baseline.
+Next action: push the scoped branch and open the W02 P1 PR. The active execution checklist is [root status.md](../../../status.md); this companion mirrors its current delivery state.
 
 ## P1 — Durable snapshots and explicit acceptance
 
-- [ ] P1-T1 — Define snapshot/acceptance contracts and separate integrity, acceptance, and planning blockers.
-- [ ] P1-T2 — Implement confined durable capture, atomic publication, and verified reopening.
-- [ ] P1-T3 — Implement explicit acceptance recording, provenance, retries, and history reading.
-- [ ] P1-T4 — Verify storage/CLI/runtime behavior and document usage and recovery.
+- [x] P1-T1 — Define snapshot/acceptance contracts and separate integrity, acceptance, and planning blockers.
+- [x] P1-T2 — Implement confined durable capture, atomic publication, and verified reopening.
+- [x] P1-T3 — Implement explicit acceptance recording, provenance, retries, and history reading.
+- [x] P1-T4 — Verify storage/CLI/runtime behavior and document usage and recovery.
+
+## P1 delivery note
+
+Implementation/verification are complete in `7a1dd15de47920ddd811296e88b14508d8c4463b`; review, merge, and integration remain pending.
 
 ## P2 — Reopen and compare accepted proposals
 
