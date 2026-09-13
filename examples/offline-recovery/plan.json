@@ -2,8 +2,7 @@
   "format": "plan-package",
   "format_version": "1.0",
   "id": "offline-recovery",
-  "revision": 1,
-  "state": "draft",
+  "revision": 2,
   "title": "Make offline exercise recovery explicit",
   "goal_md": "Give a learner an honest way to restore or discard offline progress while preserving the last known good state.",
   "scope": {
@@ -69,7 +68,7 @@
       "acceptance_criteria": [
         {
           "id": "criterion.restore-choice",
-          "text_md": "A recoverable snapshot offers restore and identifies the progress that will return."
+          "text_md": "A recoverable snapshot clearly identifies the exact progress that Restore will return"
         },
         {
           "id": "criterion.discard-choice",
@@ -111,11 +110,11 @@
       "id": "decision.explicit-outcomes",
       "title": "Persistence returns named outcomes",
       "decision_md": "The recovery experience consumes named outcomes rather than inferring persistence from a generic success toast.",
-      "rationale_md": "A visible saved state must be trustworthy when writes can fail or arrive out of order.",
       "applies_to": [
         "phase.persistence-outcomes",
         "phase.recovery-experience"
-      ]
+      ],
+      "rationale_md": "A visible saved state must be trustworthy when writes can fail or arrive out of order."
     },
     {
       "id": "decision.mock-labeling",
@@ -228,6 +227,7 @@
     "safe-markdown.v1",
     "sandboxed-html.v1"
   ],
+  "state": "draft",
   "metadata": {
     "example": true,
     "fixture_warning": "This package is an illustrative proposal, not evidence that an exercise application exists or was verified."

@@ -42,9 +42,11 @@ const runtime = await startRuntime({
   ...(options.repositoryPath ? { repositoryRoot: resolve(process.cwd(), options.repositoryPath) } : { repositoryRoot: process.cwd() }),
   ...(options.host ? { host: options.host } : {}),
   ...(options.port !== undefined ? { port: options.port } : {}),
+  serveViewer: true,
+  viewerRoot: process.cwd(),
 });
 
-console.log(`Plan Package runtime listening at http://${runtime.host}:${runtime.port}`);
+console.log(`Plan Package viewer listening at http://${runtime.host}:${runtime.port}`);
 const state = runtime.store.getState();
 if (state.currentCandidateId) {
   console.log(`Loaded ${state.packageId} revision ${state.currentRevision} as ${state.currentCandidateId}`);
