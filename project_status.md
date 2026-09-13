@@ -5,21 +5,24 @@
 **Recommended next work:** begin W02 P2 when execution is requested.
 **Active plan:** [W02 — Refine, accept, and reopen the same proposal](docs/plans/2026-09-13-01-proposal-acceptance/plan.md), with its checklist in root [status.md](status.md) and detailed evidence in [results.md](docs/plans/2026-09-13-01-proposal-acceptance/results.md).
 
+**Goal:** make saved plans dependable to view and refine, then test focused context and retained results for the execution handoff.
+
 ## Roadmap
 
-| ID | Outcome | State |
-| --- | --- | --- |
-| W01 | Open and refresh a saved Plan Package | Complete; [results](docs/plans/2026-09-12-01-package-viewer/results.md); PRs [#1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1), [#2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2), [#3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3) integrated |
-| W02 | Refine, accept, and reopen the same proposal | P1 integrated; P2/P3 unstarted; [plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md) and [results](docs/plans/2026-09-13-01-proposal-acceptance/results.md) |
-| W03 | Retrieve phase context and predecessor results | Proposed; no plan yet |
-| W04 | Use the workflow on a real change | Proposed; no plan yet |
-| W05 | Connect the useful package to SGM | Conditional; no plan yet |
+| ID | Outcome | Scope / prerequisites | Relevant specs | State |
+| --- | --- | --- | --- | --- |
+| W01 | Open and refresh a saved Plan Package | Local package core, reusable viewer, coherent refresh, and native-surface probe | [Package](docs/specs/01-plan-package.md), [viewer/review](docs/specs/02-viewer-and-review.md) | Complete; [results](docs/plans/2026-09-12-01-package-viewer/results.md); PRs [#1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1), [#2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2), [#3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3) integrated |
+| W02 | Refine, accept, and reopen the same proposal | Snapshot/acceptance storage, pinned history/comparison, and native review trial; P1 integrated | [Acceptance](docs/specs/01-plan-package.md#revisions-and-acceptance), [viewer/review](docs/specs/02-viewer-and-review.md#acceptance-and-comparison) | P2/P3 unstarted; [plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md) and [results](docs/plans/2026-09-13-01-proposal-acceptance/results.md) |
+| W03 | Retrieve phase context and predecessor results | Shared selector/CLI and demonstrable result handling; requires package/revision semantics, not an SGM graph | [Context selection](docs/specs/03-execution-and-integration.md#context-selection), [operations](docs/specs/03-execution-and-integration.md#operations), [readiness](docs/specs/03-execution-and-integration.md#readiness-and-revisions), [product results](docs/specs/03-execution-and-integration.md#durable-results-in-the-product) | Proposed; no plan yet |
+| W04 | Use the workflow on a real change | Thin adapters and a two-phase trial project with a fresh-session handoff; requires usable package/viewer/context capabilities | [Skill integration](docs/specs/03-execution-and-integration.md#planning-skill-integration), [verification](docs/specs/03-execution-and-integration.md#verification-and-completion), [correctness](docs/specs/03-execution-and-integration.md#correctness-and-usefulness), [performance](docs/specs/02-viewer-and-review.md#performance-and-proportionality) | Proposed; no plan yet |
+| W05 | Connect the useful package to SGM | One real boundary/contract reference and alignment with broader SGM design; scope depends on trial findings | [Authority](docs/specs/01-plan-package.md#authority-and-content-ownership), [references](docs/specs/01-plan-package.md#references-and-identity), [SGM integration](docs/specs/03-execution-and-integration.md#sgm-integration) | Conditional; no plan yet |
 
 Roadmap rows are candidates, not automatic commitments or execution phases.
 
 ## Record ownership
 
 - `project_status.md` is a compact roadmap and memory index. Keep current state, priorities, links, and only short durable decisions here.
+- Roadmap rows retain each candidate's outcome, scope/prerequisites, relevant specification links, and state. Remove historical execution detail, not the context needed to choose future work.
 - Root `status.md` is the single checklist for the current plan. Every plan’s checklist is represented there; never create a plan-local `status.md`.
 - Each plan directory contains `plan.md` and, when needed, `results.md`. Detailed implementation outcomes, validation, decisions, and delivery history belong in `results.md`.
 - `docs/specs/` is read-only design input. Planning or selecting work does not authorize implementation; accepted plans run through `status-next`.

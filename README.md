@@ -26,7 +26,7 @@ Read them in that order for the complete design. During focused work, follow the
 | File or artifact | Responsibility while building this experiment |
 | --- | --- |
 | `docs/specs/` | Read-only design inputs: intended behavior, constraints, examples, and verification expectations |
-| `project_status.md` | Compact durable index: current priorities, active plan links, short decisions/blockers, and links to results; target roughly 500 words or fewer |
+| `project_status.md` | Compact durable index: roadmap outcomes/scope, current priorities, active plan links, short decisions/blockers, and links to results; target roughly 500 words or fewer |
 | Root `status.md` | The single active checklist for the current plan: source plan pointer, phase tasks, blockers, and next action |
 | Accepted implementation plan | Detailed approach and instructions for the selected scope |
 | Code, test output, screenshots, and other evidence | Supporting artifacts linked from the memory files; they do not create another work queue |
