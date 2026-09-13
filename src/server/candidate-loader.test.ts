@@ -161,6 +161,34 @@ describe("candidate loading and publication", () => {
     expect(store.getState().diagnostics.map((diagnostic) => diagnostic.code)).toContain("digest-mismatch");
   });
 
+  it("generation-fences a slow load behind a newer publication request", async () => {
+    const fixture = await copyFixture("save-outcome");
+    let releaseFirstLoad: (() => void) | undefined;
+    let firstLoadStarted: (() => void) | undefined;
+    const firstLoadReady = new Promise<void>((resolveReady) => { firstLoadStarted = resolveReady; });
+    const firstLoadRelease = new Promise<void>((resolveRelease) => { releaseFirstLoad = resolveRelease; });
+    const store = new CandidateStore();
+    const firstLoad = store.loadAndPublish({
+      packageRoot: fixture.packageRoot,
+      onBeforeFinalManifestRead: async () => {
+        firstLoadStarted?.();
+        await firstLoadRelease;
+      },
+    });
+    await firstLoadReady;
+
+    await writeFile(join(fixture.packageRoot, "docs/save-outcome-notes.md"), "The newer queued load wins.\n");
+    const published = await publishPackage({ packageRoot: fixture.packageRoot });
+    expect(published.published).toBe(true);
+    const newerLoad = store.loadAndPublish({ packageRoot: fixture.packageRoot });
+    releaseFirstLoad?.();
+
+    expect(await firstLoad).toBeNull();
+    const current = await newerLoad;
+    expect(current?.revision).toBe(2);
+    expect(store.getCurrentCandidate()?.revision).toBe(2);
+  });
+
   it("publishes a validated manifest with new digests and an incremented revision", async () => {
     const fixture = await copyFixture("save-outcome");
     await writeFile(join(fixture.packageRoot, "docs/save-outcome-notes.md"), "A newly published wording.\n");

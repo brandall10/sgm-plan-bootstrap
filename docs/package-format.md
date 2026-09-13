@@ -70,16 +70,21 @@ npm run dev -- --package examples/save-outcome
 ```
 
 The runtime binds to `127.0.0.1` by default and opens the browser viewer at
-`/`. It exposes `/api/health`, `/api/state`, candidate-scoped JSON model responses at
-`/api/candidates/<content-id>/model`, and captured files/assets at
+`/`. It exposes `/api/health`, `/api/state`, and a server-sent event stream at
+`/api/events`. Candidate-scoped JSON model responses are available at
+`/api/candidates/<content-id>/model`, with captured files/assets at
 `/api/candidates/<content-id>/files/<file-id>` or
 `/api/candidates/<content-id>/assets/<asset-id>`.
 
 The viewer's **Reload package** control uses `POST /api/reload` to reread and
 revalidate the already selected package. It writes no package files: a valid
 candidate becomes current, while an invalid candidate leaves the last valid
-candidate visible with its diagnostics. Automatic watching and reconnect logic
-remain P3 work.
+candidate visible with its diagnostics. The runtime also watches `plan.json`,
+declared local files, and the parent directories needed to observe atomic renames
+and missing-file recovery. Events are debounced, serialized, and generation-fenced;
+the newest load request cannot be replaced by a slower older resolution. A valid
+load emits `candidate-published`; a rejected load emits `candidate-rejected` with
+the retained candidate's package/revision and the rejection diagnostics.
 
 The viewer renders that resolved model instead of reparsing package files. Its
 overview and phase routes use stable package/item IDs in the hash, show goal,
@@ -99,8 +104,26 @@ declared relative dependencies from the captured candidate, applies restrictive
 CSP, and prevents the opaque sandbox from accessing viewer controls. The mock
 label is part of the frame, not an assertion that a product action occurred.
 
-The viewer provides manual reload in P2. It does not watch files or imply live
-refresh, reconnect recovery, or revision history; those are P3/W02 work.
+The viewer provides manual reload and live refresh. Its connection label reports
+`connected`, `reconnecting`, or `offline`. On an SSE reconnect it fetches `/api/state`
+again so missed events do not hide a rejected candidate or a newer revision. When a
+selected stable item survives a refresh, its hash route, scroll anchor, and open
+rationale details are retained. If the item is removed, the viewer navigates to its
+surviving phase or the package overview and explains the fallback. A candidate that
+is no longer available after a runtime restart is reported as unavailable rather
+than silently showing a different candidate.
+
+### Refresh troubleshooting
+
+If the viewer says it is showing the last valid revision, inspect `/api/state` and
+read the diagnostic paths before editing. Restore all files involved in the
+completed-write convention, then run the publication helper so the manifest's
+digests and revision describe one complete candidate. A malformed or partial
+manifest is intentionally retried only when another watched filesystem event
+arrives; it is not hot-looped in the background. If the connection label remains
+`reconnecting`, keep the viewer open while the local runtime is restarted or use
+**Try again** after the runtime is available. The current hash route is preserved
+across a transient disconnect.
 
 ## Browser and host checks
 
@@ -120,3 +143,9 @@ diagrams and diagnostics, exercises the mock inside its sandbox, checks unsafe
 narrative handling, and verifies tablet/narrow layout behavior. The
 [native-surface probe](native-surface-probe.md) is separate evidence: browser
 checks do not prove that an annotation reaches an agent.
+
+For a representative five-run local baseline, run `npm run measure`. It reports
+warm candidate load, runtime opening, browser rendering, text refresh, and asset
+refresh separately, including ranges and medians plus the machine/runtime/browser
+used. Dependency installation and agent/content-authoring time are outside those
+samples.

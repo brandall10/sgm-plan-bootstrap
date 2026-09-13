@@ -1,7 +1,11 @@
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+
 import { expect, test } from "@playwright/test";
-import { resolve } from "node:path";
 
 import { startRuntime, type RunningRuntime } from "../server/runtime.js";
+import { publishPackage } from "../server/publication.js";
 
 const repositoryRoot = resolve(process.cwd());
 let offlineRuntime: RunningRuntime | undefined;
@@ -9,6 +13,13 @@ let saveOutcomeRuntime: RunningRuntime | undefined;
 
 function runtimeUrl(runtime: RunningRuntime): string {
   return `http://${runtime.host}:${runtime.port}`;
+}
+
+async function copyFixture(name: string): Promise<{ packageRoot: string }> {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-viewer-e2e-"));
+  const packageRoot = join(temporaryRoot, name);
+  await cp(resolve(repositoryRoot, "examples", name), packageRoot, { recursive: true });
+  return { packageRoot };
 }
 
 test.beforeAll(async () => {
@@ -61,7 +72,7 @@ test("renders the structured offline package, navigates exact criteria, and expo
 
   await page.getByRole("link", { name: "criterion.restore-choice", exact: true }).first().click();
   await expect(page).toHaveURL(/\/items\/criterion\.restore-choice$/);
-  await expect(page.locator(".criterion--highlighted")).toContainText("A recoverable snapshot offers restore");
+  await expect(page.locator(".criterion--highlighted")).toContainText("A recoverable snapshot clearly identifies the exact progress");
 
   await page.goto(`${runtimeUrl(offlineRuntime!)}/#/packages/offline-recovery/items/no-such-item`);
   await expect(page.getByTestId("route-error")).toContainText("No addressable item named 'no-such-item'");
@@ -136,4 +147,116 @@ test("labels a blocking question and preserves the hierarchy from tablet to narr
   expect(sidebar).not.toBeNull();
   expect(main).not.toBeNull();
   expect(main!.y).toBeGreaterThan(sidebar!.y);
+});
+
+test("refreshes complete edits and keeps the last valid revision visible for rejected edits", async ({ page }) => {
+  const fixture = await copyFixture("save-outcome");
+  const runtime = await startRuntime({
+    packageRoot: fixture.packageRoot,
+    port: 0,
+    watchDebounceMs: 35,
+    serveViewer: true,
+    viewerRoot: repositoryRoot,
+  });
+
+  try {
+    await page.goto(`${runtimeUrl(runtime)}/#/packages/save-outcome/items/phase.save-outcome`);
+    await expect(page.getByTestId("connection-status")).toContainText("connected");
+    await expect(page.getByTestId("current-revision")).toHaveText("1");
+    const initialContentId = await page.getByTestId("content-id").innerText();
+
+    const manifestPath = join(fixture.packageRoot, "plan.json");
+    const notePath = join(fixture.packageRoot, "docs/save-outcome-notes.md");
+    await writeFile(notePath, "A complete watched update is now available.\n");
+    const published = await publishPackage({ packageRoot: fixture.packageRoot });
+    expect(published.published).toBe(true);
+    const publishedManifest = await readFile(manifestPath);
+
+    await expect(page.getByTestId("current-revision")).toHaveText("2", { timeout: 5_000 });
+    await expect(page.getByTestId("content-id")).not.toHaveText(initialContentId);
+
+    await writeFile(manifestPath, "{\n");
+    await expect(page.getByTestId("last-valid-notice")).toContainText("last valid revision 2", { timeout: 5_000 });
+    await expect(page.getByTestId("diagnostics")).toContainText("malformed-json");
+    await expect(page.getByTestId("current-revision")).toHaveText("2");
+
+    await writeFile(manifestPath, publishedManifest);
+    await expect(page.getByTestId("last-valid-notice")).toHaveCount(0, { timeout: 5_000 });
+  } finally {
+    await page.goto("about:blank");
+    await runtime.close();
+  }
+});
+
+test("falls back to a surviving phase when a selected item is removed", async ({ page }) => {
+  const fixture = await copyFixture("offline-recovery");
+  const runtime = await startRuntime({
+    packageRoot: fixture.packageRoot,
+    port: 0,
+    watchDebounceMs: 35,
+    serveViewer: true,
+    viewerRoot: repositoryRoot,
+  });
+
+  try {
+    await page.goto(`${runtimeUrl(runtime)}/#/packages/offline-recovery/items/criterion.restore-choice`);
+    await expect(page.locator(".criterion--highlighted")).toContainText("A recoverable snapshot clearly identifies the exact progress");
+
+    const manifestPath = join(fixture.packageRoot, "plan.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+      phases: Array<{ id: string; acceptance_criteria: Array<{ id: string }> }>;
+      assets: Array<{ applies_to: string[] }>;
+      decisions: Array<{ applies_to: string[] }>;
+    };
+    const recoveryPhase = manifest.phases.find((phase) => phase.id === "phase.recovery-experience");
+    if (!recoveryPhase) throw new Error("Recovery phase is missing from the fixture.");
+    recoveryPhase.acceptance_criteria = recoveryPhase.acceptance_criteria.filter((criterion) => criterion.id !== "criterion.restore-choice");
+    for (const entry of [...manifest.assets, ...manifest.decisions]) {
+      entry.applies_to = entry.applies_to.filter((itemId) => itemId !== "criterion.restore-choice");
+    }
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const published = await publishPackage({ packageRoot: fixture.packageRoot });
+    expect(published.published).toBe(true);
+
+    await expect(page).toHaveURL(/\/items\/phase\.recovery-experience$/, { timeout: 5_000 });
+    await expect(page.getByTestId("navigation-notice")).toContainText("criterion 'criterion.restore-choice' was removed");
+    await expect(page.getByRole("heading", { name: "Explain restore and start-over choices", exact: true }).first()).toBeVisible();
+  } finally {
+    await page.goto("about:blank");
+    await runtime.close();
+  }
+});
+
+test("reconnects after a runtime restart and reloads the current state", async ({ page }) => {
+  const fixture = await copyFixture("save-outcome");
+  const firstRuntime = await startRuntime({
+    packageRoot: fixture.packageRoot,
+    port: 0,
+    watchDebounceMs: 35,
+    serveViewer: true,
+    viewerRoot: repositoryRoot,
+  });
+
+  await page.goto(`${runtimeUrl(firstRuntime)}/#/packages/save-outcome`);
+  await expect(page.getByTestId("connection-status")).toContainText("connected");
+  const port = firstRuntime.port;
+  await firstRuntime.close();
+  await expect(page.getByTestId("connection-status")).toContainText(/reconnecting|offline/, { timeout: 5_000 });
+
+  let restartedRuntime: RunningRuntime | undefined;
+  try {
+    restartedRuntime = await startRuntime({
+      packageRoot: fixture.packageRoot,
+      port,
+      watchDebounceMs: 35,
+      serveViewer: true,
+      viewerRoot: repositoryRoot,
+    });
+    await expect(page.getByTestId("connection-status")).toContainText("connected", { timeout: 8_000 });
+    await expect(page.getByTestId("current-revision")).toHaveText("1");
+    await expect(page.getByRole("heading", { name: "Expose the saved-progress outcome", exact: true }).first()).toBeVisible();
+  } finally {
+    await page.goto("about:blank");
+    await restartedRuntime?.close();
+  }
 });

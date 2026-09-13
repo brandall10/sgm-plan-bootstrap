@@ -2,7 +2,7 @@
 
 Source plan: [W01 — Open and refresh a saved Plan Package](plan.md)
 
-The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 was implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at that accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P2's browser viewer was implemented and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9`; the native Browser annotation receipt/edit/reload loop is now also verified. [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged into `main` at `fbddbeef1f3ca293c59366f217df61f97a8e9276`.
+The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 was implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at that accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P2's browser viewer was implemented and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9`; the native Browser annotation receipt/edit/reload loop is now also verified. [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged into `main` at `fbddbeef1f3ca293c59366f217df61f97a8e9276`. P3 is implemented and locally verified in `d34c1af836147047e54f5b7ab5f582f9d3796dfd` on `feat/package-viewer-phase-p3-live-refresh`; [PR #3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3) is open and review/merge is pending.
 
 ## P1
 
@@ -68,6 +68,33 @@ The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 
 
 ## P3
 
-No P3 refresh/recovery or performance outcome recorded.
+### Interfaces produced
 
-Next action: P2 is closed out; select and plan P3 separately when ready.
+- `PackageWatcher` watches the selected manifest, captured declared files, and the necessary parent directories for atomic replacement, deletion, and newly declared dependencies. Debounce limits duplicate filesystem notifications without treating timing as the coherence guarantee.
+- `CandidateStore.loadAndPublish` serializes loads and generation-fences superseded requests. It publishes only complete candidates, keeps prior captured bytes on rejection, and exposes the latest attempt outcome through `RuntimeState.lastAttempt`.
+- `/api/events` provides an initial `state` event plus `candidate-published` and `candidate-rejected` events. Rejected state includes the retained package/revision and actionable diagnostics; successful publication refreshes the viewer's candidate-scoped model and asset URLs.
+- The viewer's live status/recovery surface reports connection state, refetches complete state on reconnect, preserves surviving item routes/scroll/details, and falls back to a surviving phase or overview with a visible explanation when an item is deleted. `npm run measure` is a reproducible five-run benchmark for the representative fixture.
+
+### Verification and outcomes
+
+- Accepted plan revision covered: `ee7a0c339cc4b4265f738add0427e675484e3567`; local `main` base covered: `0a81fb09e4f1426b557d55ede786c8609cfaf73a`; phase branch: `feat/package-viewer-phase-p3-live-refresh`.
+- `npm run typecheck` — passed.
+- `npm run lint` — passed.
+- `npm test` — passed: 4 test files, 25 tests. Coverage includes generation fencing, watched valid/invalid publication, initial-invalid recovery, interrupted multi-file retention, asset consistency, newly declared dependency rediscovery, and SSE state events. Runtime HTTP checks used approved loopback access.
+- `npm run test:e2e` — passed: 8 Playwright checks using the local Google Chrome channel. Coverage includes automatic refresh/rejection diagnostics, retained revision, selected-item deletion fallback, runtime restart/reconnect, both fixtures, unsafe narrative, prototype isolation, and responsive hierarchy.
+- `npm run build` — passed: TypeScript check plus Vite production build.
+- `npm run measure` — passed: five ordinary sequential runs per category on an Apple M3 Max (`arm64`, macOS Darwin `27.0.0`), Node `v26.7.0`, Google Chrome via Playwright; representative fixture `examples/offline-recovery`, 5 declared/captured files, 5,339 captured bytes, baseline revision 2. Warm candidate load: median `1.08 ms`, range `0.94–1.23 ms`. Runtime open (candidate load + watcher-disabled server startup + `/api/state`): median `2.19 ms`, range `2.07–12.26 ms`. Browser render (navigation to overview heading): median `94.05 ms`, range `93.72–333.30 ms`. Text refresh (edit + atomic publication + watched publication): median `360.99 ms`, range `75.67–903.25 ms`. Asset refresh (edit + atomic publication + watched publication + asset request): median `406.28 ms`, range `93.84–504.17 ms`.
+- `git diff --check` — passed. No CI run was required; local validation is the repository's documented workflow.
+
+### Scenarios and limitations
+
+- Atomic publication is observed through the manifest's sibling-temp-file rename. Direct multi-file interruption produces a rejection while the prior candidate's text and asset bytes remain paired; correcting and republishing recovers without a server restart.
+- The watcher uses Node's local `fs.watch` and watches only the selected manifest, declared files, and their necessary parent directories. Persistent invalid content is not hot-looped; a later watched change retries it. A process restart intentionally resets in-memory candidate history, but the browser reconnects and reloads the current state when the runtime returns.
+- Connection recovery is implemented through standard browser `EventSource` plus a full `/api/state` fetch on `open`; no custom annotation, chat, polling, or agent-session transport was added. The native Browser annotation outcome remains the verified P2 evidence in [the native-surface probe](../../native-surface-probe.md).
+
+### Delivery ledger
+
+- Implementation: complete and verified locally in `d34c1af836147047e54f5b7ab5f582f9d3796dfd` on `feat/package-viewer-phase-p3-live-refresh`, based on `main` `0a81fb09e4f1426b557d55ede786c8609cfaf73a` and accepted plan revision `ee7a0c339cc4b4265f738add0427e675484e3567`.
+- Review/merge: [PR #3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3) is open and currently clean; merging was not requested.
+- Integration: not observed on `main`.
+- Next action: await review/merge for [PR #3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3); keep W01 closed to further phase selection until that PR is integrated.

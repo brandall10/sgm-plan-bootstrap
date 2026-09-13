@@ -82,6 +82,16 @@ file, republish its manifest atomically with `npm run publish -- --package
 <package-directory>`.
 
 Run the local verification suite with `npm run typecheck`, `npm run lint`,
-`npm test`, `npm run test:e2e`, and `npm run build`. The browser checks use the
+`npm test`, `npm run test:e2e`, and `npm run build`. Use `npm run measure` for
+the five-run local load/render/refresh baseline. The browser checks use the
 locally installed Google Chrome channel; they do not establish native Codex
 annotation support.
+
+The development runtime watches the selected package's manifest, declared files,
+and the parent directories needed for atomic replacement. Edit the package files,
+then run the publication helper to produce a complete manifest. The viewer
+automatically displays a newly published candidate; an interrupted or invalid
+edit leaves the last valid revision visible with diagnostics. Its live-refresh
+label shows whether the local event stream is connected, reconnecting, or offline.
+See [the package format guide](docs/package-format.md#refresh-troubleshooting) if
+the viewer retains an earlier revision.

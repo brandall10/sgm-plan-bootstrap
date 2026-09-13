@@ -117,6 +117,10 @@ p, li, dd { overflow-wrap: anywhere; }
 .revision-summary dd { margin: 0.08rem 0 0; font-weight: 600; }
 
 .header-actions p { margin: 0.65rem 0 0; color: #d4dff5; font-size: 0.84rem; }
+.runtime-status { display: grid; gap: 0.35rem; margin-top: 0.7rem; }
+.runtime-status p { margin: 0; color: #d4dff5; font-size: 0.84rem; }
+.runtime-status > p:first-child { margin: 0; }
+.runtime-status--offline p[role="alert"], .runtime-status--reconnecting p[role="alert"] { color: #ffe5ab; }
 
 .viewer-layout {
   display: grid;
@@ -145,13 +149,13 @@ p, li, dd { overflow-wrap: anywhere; }
 main { min-width: 0; padding: clamp(1.1rem, 4vw, 3rem); }
 main > * + * { margin-top: 1.5rem; }
 
-.overview, .phase-detail, .dependency-map, .decision-question-panel, .artifact-list, .shared-context, .target-detail, .route-error, .diagnostics, .runtime-empty {
+.overview, .phase-detail, .dependency-map, .decision-question-panel, .artifact-list, .shared-context, .target-detail, .route-error, .navigation-notice, .diagnostics, .runtime-empty {
   border: 1px solid #dce3f0;
   border-radius: 0.85rem;
   background: #fff;
   box-shadow: 0 0.25rem 1.5rem rgb(26 43 83 / 5%);
 }
-.overview, .phase-detail, .dependency-map, .decision-question-panel, .artifact-list, .shared-context, .target-detail, .route-error, .diagnostics { padding: clamp(1rem, 3vw, 1.75rem); }
+.overview, .phase-detail, .dependency-map, .decision-question-panel, .artifact-list, .shared-context, .target-detail, .route-error, .navigation-notice, .diagnostics { padding: clamp(1rem, 3vw, 1.75rem); }
 
 .overview > :first-child, .phase-detail > :first-child { margin-top: 0; }
 .overview > :last-child, .phase-detail > :last-child { margin-bottom: 0; }
@@ -216,9 +220,13 @@ main > * + * { margin-top: 1.5rem; }
 .target-detail .artifact-frame { background: #fff; }
 .route-error { border-color: #e0a9ae; background: #fff1f2; }
 .route-error h2 { margin-top: 0; }
+.navigation-notice { border-color: #9dc7e8; background: #eff9ff; }
+.navigation-notice h2 { margin-top: 0; }
 
 .runtime-empty { width: min(46rem, calc(100% - 2rem)); margin: 8vh auto; padding: 2rem; }
 .runtime-empty .diagnostics { margin-top: 1rem; }
+.runtime-empty .runtime-status { padding: 0.8rem 1rem; border: 1px solid #dce3f0; border-radius: 0.6rem; background: #f5f7fc; }
+.runtime-empty .runtime-status p { color: #53627c; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
@@ -245,6 +253,6 @@ main > * + * { margin-top: 1.5rem; }
   .plan-header { padding: 1.15rem 1rem; }
   .revision-summary { grid-template-columns: 1fr; }
   main { padding: 1rem; }
-  .overview, .phase-detail, .dependency-map, .decision-question-panel, .artifact-list, .shared-context, .target-detail, .route-error, .diagnostics { padding: 1rem; }
+  .overview, .phase-detail, .dependency-map, .decision-question-panel, .artifact-list, .shared-context, .target-detail, .route-error, .navigation-notice, .diagnostics { padding: 1rem; }
   .phase-map-nodes { grid-template-columns: 1fr; }
 }
