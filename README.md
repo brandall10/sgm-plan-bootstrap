@@ -58,3 +58,24 @@ Unpack into a separate folder first. In an existing repository, merge the new ro
 This bundle updates the Plan Package experiment; it is not a replacement for the whole SGM specification. Existing SGM materials remain useful context for system ownership and integration. The source design drew on SGM draft 0.11, the offline-recovery Plan Package example, and the shared planning/annotation conventions in codex-viz-planning-skills.zip. The three specifications here are sufficient to start the experiment without reading that entire archive.
 
 Use the actual installed planner/status-next/verification skills and their invocation syntax. This documentation revision does not install or modify those skills, activate an implementation plan, or establish that product behavior has been built or tested.
+
+## W01 implementation
+
+P1 establishes the first executable package representation and a confined local
+runtime. Read [the package format guide](docs/package-format.md) for the exact
+fields, digest publication procedure, launch command, endpoints, and
+diagnostic behavior. [The architecture note](docs/architecture.md) records the
+core/server boundary that later viewer work reuses.
+
+After installing the locked dependencies, launch an illustrative package with:
+
+```sh
+npm install
+npm run dev -- --package examples/offline-recovery
+```
+
+The second fixture can be loaded with `--package examples/save-outcome`. The
+fixtures describe proposals only; their mock controls and diagrams are not
+evidence of a working exercise product. After changing a declared package
+file, republish its manifest atomically with `npm run publish -- --package
+<package-directory>`.

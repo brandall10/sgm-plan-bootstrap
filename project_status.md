@@ -1,9 +1,9 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-12
-**Current state:** W01 implementation plan accepted, committed, and active; no product implementation or verification performed.
-**Recommended next work:** Begin P1 through `status-next`.
-**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; execution not started).
+**Current state:** W01 P1 implementation is committed and locally verified; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open and integration is pending.
+**Recommended next work:** Review/merge PR #1, then begin P2 only after P1 is integrated.
+**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; P1 implemented/verified, PR #1 open).
 
 ## Goal and observed baseline
 
@@ -17,7 +17,7 @@ This file is the sole source of truth for proposed work, actual plan links, prio
 
 | ID | Proposed plan outcome | Scope and prerequisites | Specification references | State / actual plan |
 | --- | --- | --- | --- | --- |
-| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); committed and active, execution not started |
+| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); P1 implemented/verified, PR pending, P2–P3 not started |
 | W02 | Refine, accept, and reopen the same proposal | Native feedback plus preserved reviewed assets and clear draft/accepted views; requires a usable viewer and actual host-surface findings | [Visual meaning](docs/specs/01-plan-package.md#visual-meaning), [revisions and acceptance](docs/specs/01-plan-package.md#revisions-and-acceptance); [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop), [comparison](docs/specs/02-viewer-and-review.md#acceptance-and-comparison) | Proposed; no plan yet |
 | W03 | Retrieve phase context and predecessor results | Shared selector/CLI and demonstrable result handling in the product; requires package/revision semantics, not an SGM graph | [Context selection](docs/specs/03-execution-and-integration.md#context-selection), [operations](docs/specs/03-execution-and-integration.md#operations), [readiness](docs/specs/03-execution-and-integration.md#readiness-and-revisions), [product results](docs/specs/03-execution-and-integration.md#durable-results-in-the-product) | Proposed; no plan yet |
 | W04 | Use the workflow on a real change | Thin adapters and a two-phase change in a separate trial project, including a fresh-session handoff; requires usable package/viewer/context capabilities | [Skill integration](docs/specs/03-execution-and-integration.md#planning-skill-integration), [verification](docs/specs/03-execution-and-integration.md#verification-and-completion), [correctness and usefulness](docs/specs/03-execution-and-integration.md#observable-correctness-and-usefulness); [performance](docs/specs/02-viewer-and-review.md#performance-and-proportionality) | Proposed; no plan yet |
@@ -44,7 +44,7 @@ The planner should choose technology, component boundaries, file layout, update 
 
 ## Progress, findings, and evidence
 
-The documentation was reorganized into three capability specs and this direct planning entry point. The previous separate proposal files have been retired from the bundle. No implementation plan, product acceptance, behavioral verification, or merged PR is recorded yet.
+The documentation was reorganized into three capability specs and this direct planning entry point. The previous separate proposal files have been retired from the bundle. W01 P1 now has an implementation revision and behavioral verification; product acceptance, PR review, and merge are still unrecorded.
 
 During work, add concise durable outcomes here with the actual plan, relevant code/PR revision, checks/evidence, material decisions, and unresolved limitations. Keep tactical attempts and the active phase checklist in status.md. Before resetting that working file, bring forward anything a fresh session needs to know. Evidence files support these entries rather than becoming another project memory or work queue.
 
@@ -80,3 +80,12 @@ Broader SGM comprehension and change-analysis goals remain relevant, but this ro
 ### W01 acceptance — 2026-09-12
 
 - User acceptance promoted W01 from proposal to the active committed plan. The plan and project-status update were committed together; `status.md` is now activated, while implementation has not started.
+
+### W01 P1 implementation — 2026-09-12
+
+- Implemented the accepted P1 scope on branch `feat/package-viewer-phase-p1-core` in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main`/accepted plan revision `ee7a0c339cc4b4265f738add0427e675484e3567`.
+- Added the versioned inline `plan.json` contract, strict structural validation, stable ID and dependency checks, declared-root reference resolution, blocking-question diagnostics, SHA-256 publication helper, and candidate content IDs.
+- Added a confined Node runtime and immutable candidate store serving captured model/file/asset bytes, plus two data-driven illustrative fixtures: the complete two-phase offline-recovery package and an independently worded one-phase save-outcome package. Added format, boundary, publication, launch, and troubleshooting guidance in the repository docs.
+- Verification passed: `npm run typecheck`, `npm run lint`, `npm test` (3 files, 16 tests, including loopback HTTP endpoints), `npm run build`, and `git diff --cached --check`. Runtime tests required loopback permission in the managed sandbox but passed in the approved local run.
+- Material boundary: P1 does not include the reusable viewer, live watching/recovery, browser checks, native presentation probe, or performance measurements; those remain P2/P3 obligations. The offline fixture's optional external reference is intentionally not fetched and is surfaced as a warning.
+- Delivery state: implementation and local verification complete; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open against `main`; merge/integration is not observed. Next action is review/merge, then P2.

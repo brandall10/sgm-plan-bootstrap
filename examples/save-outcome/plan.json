@@ -1,0 +1,106 @@
+{
+  "format": "plan-package",
+  "format_version": "1.0",
+  "id": "save-outcome",
+  "revision": 1,
+  "state": "draft",
+  "title": "Expose the saved-progress outcome",
+  "goal_md": "Tell a caller whether completed practice progress was actually persisted.",
+  "scope": {
+    "included": [
+      "An explicit persistence result",
+      "A caller-facing outcome for a failed write"
+    ],
+    "excluded": [
+      "Cloud synchronization",
+      "Recovery screen design"
+    ]
+  },
+  "constraints": [
+    {
+      "id": "constraint.save-outcome-honest",
+      "text_md": "Report saved only after persistence succeeds; failed writes remain visibly unsaved."
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase.save-outcome",
+      "title": "Return and consume the save outcome",
+      "depends_on": [],
+      "objective_md": "Callers can distinguish saved completion from a completion whose write failed.",
+      "approach_md": "Keep persistence behind a small result-returning boundary and pass the result through the completion caller without interpreting a notification as proof.",
+      "acceptance_criteria": [
+        {
+          "id": "criterion.failed-save",
+          "text_md": "A failed write returns unsaved and preserves the previous valid snapshot."
+        },
+        {
+          "id": "criterion.successful-save",
+          "text_md": "A successful write returns saved only after the persisted snapshot can be read back."
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "id": "reference.save-outcome-notes",
+      "kind": "local",
+      "file_id": "file.save-outcome-notes",
+      "purpose_md": "A short independently worded explanation of the result contract.",
+      "required": true,
+      "applies_to": [
+        "phase.save-outcome",
+        "criterion.failed-save",
+        "criterion.successful-save"
+      ]
+    }
+  ],
+  "decisions": [],
+  "questions": [],
+  "assets": [
+    {
+      "id": "asset.save-outcome-diagram",
+      "file_id": "file.save-outcome-diagram",
+      "format": "svg",
+      "authority": "illustrative",
+      "purpose_md": "A small diagram showing the distinction between a completed action and a persisted outcome.",
+      "applies_to": [
+        "phase.save-outcome",
+        "criterion.failed-save",
+        "criterion.successful-save"
+      ],
+      "required": true,
+      "dependency_file_ids": [],
+      "mock": false
+    }
+  ],
+  "files": [
+    {
+      "id": "file.save-outcome-notes",
+      "root": "package",
+      "path": "docs/save-outcome-notes.md",
+      "sha256": "8a485e930399b1d85aacc91c08bb2405337aa6d126511aa76281f58c467fa12e",
+      "required": true,
+      "media_type": "text/markdown; charset=utf-8"
+    },
+    {
+      "id": "file.save-outcome-diagram",
+      "root": "package",
+      "path": "assets/save-outcome.svg",
+      "sha256": "3d3e3d2241ae1960c5cab684cdf3ff7877a939e793b7e515aa6510a9b895930d",
+      "required": true,
+      "media_type": "image/svg+xml"
+    }
+  ],
+  "required_capabilities": [
+    "inline-phases.v1",
+    "digest-manifest.v1",
+    "local-reference-roots.v1",
+    "candidate-assets.v1",
+    "safe-markdown.v1"
+  ],
+  "metadata": {
+    "example": true,
+    "fixture_warning": "This package is illustrative and is not evidence of an implemented persistence layer."
+  }
+}

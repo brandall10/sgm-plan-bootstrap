@@ -1,0 +1,235 @@
+{
+  "format": "plan-package",
+  "format_version": "1.0",
+  "id": "offline-recovery",
+  "revision": 1,
+  "state": "draft",
+  "title": "Make offline exercise recovery explicit",
+  "goal_md": "Give a learner an honest way to restore or discard offline progress while preserving the last known good state.",
+  "scope": {
+    "included": [
+      "Persistence outcomes for completed exercises",
+      "Restore, discard, and unavailable-state recovery flows",
+      "A reviewable recovery interaction design"
+    ],
+    "excluded": [
+      "Cloud synchronization",
+      "Exercise content authoring",
+      "Durable acceptance history"
+    ]
+  },
+  "constraints": [
+    {
+      "id": "constraint.save-honesty",
+      "text_md": "Show saved only after the persistence operation succeeds; a failed write must preserve the previous valid snapshot."
+    },
+    {
+      "id": "constraint.invalid-snapshot",
+      "text_md": "An invalid local snapshot is unavailable, not silently treated as an empty exercise session."
+    },
+    {
+      "id": "constraint.discard-fence",
+      "text_md": "Starting over invalidates queued saves from the discarded session so an older write cannot resurrect progress."
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase.persistence-outcomes",
+      "title": "Persist completed exercises and outcomes",
+      "depends_on": [],
+      "objective_md": "Callers can distinguish saved, unsaved, unavailable, restored, and discarded outcomes without guessing from a notification.",
+      "approach_md": "Keep snapshot reads and writes behind a small session boundary. Return an explicit outcome only after the write completes, retain the prior valid snapshot after a failure, and fence queued writes when a session is discarded.",
+      "acceptance_criteria": [
+        {
+          "id": "criterion.saved-after-success",
+          "text_md": "A completed exercise reports saved only after its snapshot write succeeds."
+        },
+        {
+          "id": "criterion.failed-write-preserved",
+          "text_md": "A failed write reports unsaved and leaves the previous valid progress available for restore."
+        },
+        {
+          "id": "criterion.invalid-snapshot-unavailable",
+          "text_md": "Malformed or incompatible local data produces an explicit unavailable result instead of an empty valid session."
+        },
+        {
+          "id": "criterion.discard-fence",
+          "text_md": "After starting over, a queued save from the discarded session cannot publish progress into the new session."
+        }
+      ]
+    },
+    {
+      "id": "phase.recovery-experience",
+      "title": "Explain restore and start-over choices",
+      "depends_on": [
+        "phase.persistence-outcomes"
+      ],
+      "objective_md": "The recovery surface makes the available snapshot and each consequence clear before the learner chooses restore or start over.",
+      "approach_md": "Use a compact recovery panel with explicit result labels, a visibly illustrative prototype, and a fallback when the snapshot is unavailable. Keep the persistence outcomes from the preceding phase visible in the UI contract.",
+      "acceptance_criteria": [
+        {
+          "id": "criterion.restore-choice",
+          "text_md": "A recoverable snapshot offers restore and identifies the progress that will return."
+        },
+        {
+          "id": "criterion.discard-choice",
+          "text_md": "Start over explains that the stored snapshot and any queued session work are discarded."
+        },
+        {
+          "id": "criterion.recovery-unavailable",
+          "text_md": "An unavailable snapshot gives a clear reason and a safe path to begin without pretending restoration succeeded."
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "id": "reference.recovery-notes",
+      "kind": "local",
+      "file_id": "file.behavior-notes",
+      "purpose_md": "Retained narrative explaining the state transitions represented by the package.",
+      "required": true,
+      "applies_to": [
+        "phase.persistence-outcomes",
+        "phase.recovery-experience"
+      ]
+    },
+    {
+      "id": "reference.native-annotation",
+      "kind": "external",
+      "url": "https://example.com/native-review-surface",
+      "access": "public documentation",
+      "purpose_md": "Placeholder for the host presentation capability to probe during viewer work; the P1 reader does not fetch it.",
+      "required": false,
+      "applies_to": [
+        "phase.recovery-experience"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "decision.explicit-outcomes",
+      "title": "Persistence returns named outcomes",
+      "decision_md": "The recovery experience consumes named outcomes rather than inferring persistence from a generic success toast.",
+      "rationale_md": "A visible saved state must be trustworthy when writes can fail or arrive out of order.",
+      "applies_to": [
+        "phase.persistence-outcomes",
+        "phase.recovery-experience"
+      ]
+    },
+    {
+      "id": "decision.mock-labeling",
+      "title": "Prototype behavior is visibly simulated",
+      "decision_md": "The selected recovery prototype labels its controls and outcomes as mock behavior and does not claim to persist an exercise.",
+      "applies_to": [
+        "phase.recovery-experience",
+        "criterion.restore-choice",
+        "criterion.discard-choice"
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "question.wording",
+      "title": "Choose the learner-facing unavailable wording",
+      "question_md": "Should the unavailable state say that the snapshot is unavailable, or that it could not be restored?",
+      "status": "open",
+      "blocking": false,
+      "applies_to": [
+        "phase.recovery-experience",
+        "criterion.recovery-unavailable"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset.recovery-flow",
+      "file_id": "file.recovery-flow",
+      "format": "svg",
+      "authority": "authoritative",
+      "purpose_md": "Behavior diagram for the save, restore, unavailable, and discard transitions.",
+      "applies_to": [
+        "phase.persistence-outcomes",
+        "phase.recovery-experience",
+        "criterion.failed-write-preserved",
+        "criterion.discard-fence"
+      ],
+      "required": true,
+      "dependency_file_ids": [],
+      "mock": false
+    },
+    {
+      "id": "asset.recovery-prototype",
+      "file_id": "file.recovery-prototype-html",
+      "format": "html",
+      "authority": "authoritative",
+      "purpose_md": "Selected interaction prototype for the recovery choice panel; it governs presentation details only.",
+      "applies_to": [
+        "phase.recovery-experience",
+        "criterion.restore-choice",
+        "criterion.discard-choice",
+        "criterion.recovery-unavailable"
+      ],
+      "required": true,
+      "dependency_file_ids": [
+        "file.recovery-prototype-css",
+        "file.recovery-prototype-js"
+      ],
+      "mock": true
+    }
+  ],
+  "files": [
+    {
+      "id": "file.behavior-notes",
+      "root": "package",
+      "path": "docs/behavior-notes.md",
+      "sha256": "bfb727ab4906eb82a648ee036ae9f8b387ff9b672f593c7577cc4b7201ea4b29",
+      "required": true,
+      "media_type": "text/markdown; charset=utf-8"
+    },
+    {
+      "id": "file.recovery-flow",
+      "root": "package",
+      "path": "assets/recovery-flow.svg",
+      "sha256": "2e4ac59cb938d2ab754d6c16b42514c473b533f4d10b51ef1221e1fc08059fa7",
+      "required": true,
+      "media_type": "image/svg+xml"
+    },
+    {
+      "id": "file.recovery-prototype-html",
+      "root": "package",
+      "path": "designs/recovery-prototype.html",
+      "sha256": "c812304b5fd18712e54d7b48258133595e2192ee9c63d698236ae7b29f90a744",
+      "required": true,
+      "media_type": "text/html; charset=utf-8"
+    },
+    {
+      "id": "file.recovery-prototype-css",
+      "root": "package",
+      "path": "designs/recovery-prototype.css",
+      "sha256": "e4804f6789fbd91274c235f85b959744d3a704abb1fd556fb903b07c6b07dd7c",
+      "required": true,
+      "media_type": "text/css; charset=utf-8"
+    },
+    {
+      "id": "file.recovery-prototype-js",
+      "root": "package",
+      "path": "designs/recovery-prototype.js",
+      "sha256": "afa98e121db188ce0164c7b257d8487ee844da10506cb1fa6d32a63f55fc78b5",
+      "required": true,
+      "media_type": "text/javascript; charset=utf-8"
+    }
+  ],
+  "required_capabilities": [
+    "inline-phases.v1",
+    "digest-manifest.v1",
+    "local-reference-roots.v1",
+    "candidate-assets.v1",
+    "safe-markdown.v1",
+    "sandboxed-html.v1"
+  ],
+  "metadata": {
+    "example": true,
+    "fixture_warning": "This package is an illustrative proposal, not evidence that an exercise application exists or was verified."
+  }
+}
