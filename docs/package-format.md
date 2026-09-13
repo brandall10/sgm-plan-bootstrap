@@ -1,6 +1,6 @@
-# Plan Package format and local runtime
+# Plan Package format, runtime, and viewer
 
-P1 supports one versioned representation: an inline `plan.json` manifest with
+The package core supports one versioned representation: an inline `plan.json` manifest with
 `format: "plan-package"` and `format_version: "1.0"`. The reader accepts the
 fields below and retains `metadata` as opaque optional data. Structural validity
 does not imply acceptance, implementation, verification, or execution
@@ -59,7 +59,7 @@ content ID derived from the exact manifest bytes and verified file inventory.
 Responses for that candidate use captured bytes rather than rereading working
 files.
 
-## Local runtime
+## Local runtime and review surface
 
 Install dependencies once, then launch either fixture with one command:
 
@@ -69,12 +69,40 @@ npm run dev -- --package examples/offline-recovery
 npm run dev -- --package examples/save-outcome
 ```
 
-The P1 runtime binds to `127.0.0.1` by default. It exposes `/api/health`,
-`/api/state`, candidate-scoped JSON model responses at
+The runtime binds to `127.0.0.1` by default and opens the browser viewer at
+`/`. It exposes `/api/health`, `/api/state`, candidate-scoped JSON model responses at
 `/api/candidates/<content-id>/model`, and captured files/assets at
 `/api/candidates/<content-id>/files/<file-id>` or
-`/api/candidates/<content-id>/assets/<asset-id>`. The reusable browser review
-surface is a P2 deliverable; the P1 root response identifies that boundary.
+`/api/candidates/<content-id>/assets/<asset-id>`.
+
+The viewer's **Reload package** control uses `POST /api/reload` to reread and
+revalidate the already selected package. It writes no package files: a valid
+candidate becomes current, while an invalid candidate leaves the last valid
+candidate visible with its diagnostics. Automatic watching and reconnect logic
+remain P3 work.
+
+The viewer renders that resolved model instead of reparsing package files. Its
+overview and phase routes use stable package/item IDs in the hash, show goal,
+scope, shared constraints, exact criteria, dependencies, applicable decisions
+and questions, diagnostics, and artifact metadata. Missing or package-mismatched
+deep links remain visible errors rather than silently selecting another item.
+Narrative Markdown is rendered as text and small supported Markdown constructs;
+raw HTML is never interpreted and only `https:`, `http:`, `mailto:`, and fragment
+link destinations become links.
+
+SVG assets are displayed as images from their immutable candidate URL. HTML
+prototype assets are deliberately unavailable from the generic asset endpoint:
+the viewer opens them only at
+`/api/candidates/<content-id>/prototypes/<asset-id>/` in an iframe with
+`sandbox="allow-scripts"`. The runtime serves only that HTML file and its
+declared relative dependencies from the captured candidate, applies restrictive
+CSP, and prevents the opaque sandbox from accessing viewer controls. The mock
+label is part of the frame, not an assertion that a product action occurred.
+
+The viewer provides manual reload in P2. It does not watch files or imply live
+refresh, reconnect recovery, or revision history; those are P3/W02 work.
+
+## Browser and host checks
 
 Run the phase checks with:
 
@@ -82,8 +110,13 @@ Run the phase checks with:
 npm run typecheck
 npm run lint
 npm test
+npm run test:e2e
 npm run build
 ```
 
-Playwright installation and browser checks are intentionally documented with
-the P2 viewer work, not required by P1.
+`npm run test:e2e` uses the local Google Chrome channel through Playwright. It
+opens both fixtures, follows phase and criterion links, verifies generated
+diagrams and diagnostics, exercises the mock inside its sandbox, checks unsafe
+narrative handling, and verifies tablet/narrow layout behavior. The
+[native-surface probe](native-surface-probe.md) is separate evidence: browser
+checks do not prove that an annotation reaches an agent.

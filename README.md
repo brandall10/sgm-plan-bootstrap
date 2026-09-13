@@ -61,11 +61,12 @@ Use the actual installed planner/status-next/verification skills and their invoc
 
 ## W01 implementation
 
-P1 establishes the first executable package representation and a confined local
-runtime. Read [the package format guide](docs/package-format.md) for the exact
-fields, digest publication procedure, launch command, endpoints, and
-diagnostic behavior. [The architecture note](docs/architecture.md) records the
-core/server boundary that later viewer work reuses.
+P1 establishes the executable package representation and confined local runtime;
+P2 adds the reusable review surface. Read [the package format guide](docs/package-format.md)
+for the exact fields, publication procedure, launch command, viewer behavior,
+and diagnostic handling. [The architecture note](docs/architecture.md) records
+the core/server/viewer boundaries, and [the native-surface probe](docs/native-surface-probe.md)
+records the actual host-review result.
 
 After installing the locked dependencies, launch an illustrative package with:
 
@@ -79,3 +80,8 @@ fixtures describe proposals only; their mock controls and diagrams are not
 evidence of a working exercise product. After changing a declared package
 file, republish its manifest atomically with `npm run publish -- --package
 <package-directory>`.
+
+Run the local verification suite with `npm run typecheck`, `npm run lint`,
+`npm test`, `npm run test:e2e`, and `npm run build`. The browser checks use the
+locally installed Google Chrome channel; they do not establish native Codex
+annotation support.

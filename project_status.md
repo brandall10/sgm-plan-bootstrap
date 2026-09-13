@@ -1,9 +1,9 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-12
-**Current state:** W01 P1 implementation is committed, locally verified, and integrated in `main` via [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1); P2/P3 remain unstarted.
-**Recommended next work:** If W01 resumes, begin P2 through `status-next`; this merge-only request is complete.
-**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; P1 integrated, P2–P3 not started).
+**Current state:** W01 P1 is integrated in `main` via [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1). P2's reusable viewer is locally verified on its dedicated branch; PR review/merge is pending. P3 is unstarted.
+**Recommended next work:** Deliver and review W01 P2's scoped PR; do not start P3 until P2 is integrated.
+**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; P1 integrated, P2 verified/PR pending, P3 not started).
 
 ## Goal and observed baseline
 
@@ -17,7 +17,7 @@ This file is the sole source of truth for proposed work, actual plan links, prio
 
 | ID | Proposed plan outcome | Scope and prerequisites | Specification references | State / actual plan |
 | --- | --- | --- | --- | --- |
-| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); P1 implemented/verified, PR pending, P2–P3 not started |
+| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); P1 integrated, P2 verified/PR pending, P3 unstarted |
 | W02 | Refine, accept, and reopen the same proposal | Native feedback plus preserved reviewed assets and clear draft/accepted views; requires a usable viewer and actual host-surface findings | [Visual meaning](docs/specs/01-plan-package.md#visual-meaning), [revisions and acceptance](docs/specs/01-plan-package.md#revisions-and-acceptance); [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop), [comparison](docs/specs/02-viewer-and-review.md#acceptance-and-comparison) | Proposed; no plan yet |
 | W03 | Retrieve phase context and predecessor results | Shared selector/CLI and demonstrable result handling in the product; requires package/revision semantics, not an SGM graph | [Context selection](docs/specs/03-execution-and-integration.md#context-selection), [operations](docs/specs/03-execution-and-integration.md#operations), [readiness](docs/specs/03-execution-and-integration.md#readiness-and-revisions), [product results](docs/specs/03-execution-and-integration.md#durable-results-in-the-product) | Proposed; no plan yet |
 | W04 | Use the workflow on a real change | Thin adapters and a two-phase change in a separate trial project, including a fresh-session handoff; requires usable package/viewer/context capabilities | [Skill integration](docs/specs/03-execution-and-integration.md#planning-skill-integration), [verification](docs/specs/03-execution-and-integration.md#verification-and-completion), [correctness and usefulness](docs/specs/03-execution-and-integration.md#observable-correctness-and-usefulness); [performance](docs/specs/02-viewer-and-review.md#performance-and-proportionality) | Proposed; no plan yet |
@@ -44,7 +44,7 @@ The planner should choose technology, component boundaries, file layout, update 
 
 ## Progress, findings, and evidence
 
-The documentation was reorganized into three capability specs and this direct planning entry point. The previous separate proposal files have been retired from the bundle. W01 P1 now has an implementation revision and behavioral verification; product acceptance, PR review, and merge are still unrecorded.
+The documentation was reorganized into three capability specs and this direct planning entry point. The previous separate proposal files have been retired from the bundle. W01 P1 is integrated, and W01 P2 now has locally verified browser-viewer evidence; its review and merge remain separate pending facts.
 
 During work, add concise durable outcomes here with the actual plan, relevant code/PR revision, checks/evidence, material decisions, and unresolved limitations. Keep tactical attempts and the active phase checklist in status.md. Before resetting that working file, bring forward anything a fresh session needs to know. Evidence files support these entries rather than becoming another project memory or work queue.
 
@@ -88,4 +88,12 @@ Broader SGM comprehension and change-analysis goals remain relevant, but this ro
 - Added a confined Node runtime and immutable candidate store serving captured model/file/asset bytes, plus two data-driven illustrative fixtures: the complete two-phase offline-recovery package and an independently worded one-phase save-outcome package. Added format, boundary, publication, launch, and troubleshooting guidance in the repository docs.
 - Verification passed: `npm run typecheck`, `npm run lint`, `npm test` (3 files, 16 tests, including loopback HTTP endpoints), `npm run build`, and `git diff --cached --check`. Runtime tests required loopback permission in the managed sandbox but passed in the approved local run.
 - Material boundary: P1 does not include the reusable viewer, live watching/recovery, browser checks, native presentation probe, or performance measurements; those remain P2/P3 obligations. The offline fixture's optional external reference is intentionally not fetched and is surfaced as a warning.
-- Delivery state: implementation and local verification complete; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P1 is integrated; P2 remains the next unstarted phase.
+- Delivery state: implementation and local verification complete; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P1 is integrated; P2 delivery is recorded below.
+
+### W01 P2 viewer and native-surface probe — 2026-09-13
+
+- Implemented a data-driven React review surface over the existing immutable runtime model: overview and stable hash links, phase/criterion navigation, constraints, decisions/questions, generated dependency map, diagrams, artifact provenance, and explicit draft/diagnostic labels. The viewer never reparses package content.
+- Added safe narrative rendering with raw HTML treated as text and only safe web/mail/fragment links activated. Selected HTML mocks now use a candidate-scoped route, restrictive CSP, opaque `allow-scripts` iframe sandbox, and declared dependency-only serving; browser checks show the mock can act within its frame but cannot read viewer DOM.
+- Added Playwright browser checks for both fixtures, deep links/missing targets, diagnostics/blocking labels, unsafe narrative handling, artifact rendering, prototype isolation, and desktop/tablet/narrow hierarchy. Local typecheck, lint, unit/HTTP, browser, build, and whitespace checks passed; details are in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md#p2).
+- The actual Codex presentation probe rendered the local package but exposed no annotation callback or feedback payload. [The recorded outcome](docs/native-surface-probe.md) is unavailable/unverified, not a successful native-annotation trial. No replacement feedback transport was built.
+- Delivery state: implementation and local verification complete on `feat/package-viewer-phase-p2-viewer`; PR review/merge and integration are pending. P3 remains blocked on that integration.

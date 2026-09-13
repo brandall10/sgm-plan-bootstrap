@@ -1,5 +1,7 @@
 import type { Diagnostic } from "../core/diagnostics.js";
-import type { PackageAsset } from "../core/package.js";
+import { posix } from "node:path";
+
+import type { PackageAsset, PackageFile, PlanPackage } from "../core/package.js";
 import { loadCandidate, type CandidateLoadOptions, type LoadedCandidate } from "./candidate-loader.js";
 import { contentTypeForPath } from "./paths.js";
 
@@ -12,6 +14,17 @@ export interface RuntimeFileResponse {
 
 export interface RuntimeAssetResponse extends RuntimeFileResponse {
   asset: PackageAsset;
+}
+
+/** The immutable, browser-facing projection of one accepted runtime candidate. */
+export interface RuntimeModel {
+  package: PlanPackage;
+  package_id: string;
+  revision: number;
+  content_id: string;
+  readiness: "resolved";
+  diagnostics: Diagnostic[];
+  files: PackageFile[];
 }
 
 export interface RuntimeState {
@@ -43,7 +56,7 @@ export class CandidateStore {
     return this.currentCandidateId ? this.getCandidate(this.currentCandidateId) : null;
   }
 
-  getModel(candidateId: string): Record<string, unknown> | null {
+  getModel(candidateId: string): RuntimeModel | null {
     const candidate = this.getCandidate(candidateId);
     if (!candidate) return null;
     return {
@@ -53,14 +66,7 @@ export class CandidateStore {
       content_id: candidate.contentId,
       readiness: "resolved",
       diagnostics: candidate.diagnostics,
-      files: [...candidate.files.values()].map(({ file }) => ({
-        id: file.id,
-        root: file.root,
-        path: file.path,
-        sha256: file.sha256,
-        required: file.required,
-        ...(file.media_type ? { media_type: file.media_type } : {}),
-      })),
+      files: [...candidate.files.values()].map(({ file }) => ({ ...file })),
     };
   }
 
@@ -83,6 +89,35 @@ export class CandidateStore {
     const file = this.getFile(candidateId, asset.file_id);
     if (!file) return null;
     return { ...file, asset };
+  }
+
+  /**
+   * Resolves only the primary HTML file or a declared relative dependency for
+   * an isolated prototype. It never consults the package directory after the
+   * candidate was captured.
+   */
+  getPrototypeFile(candidateId: string, assetId: string, relativePath?: string): RuntimeFileResponse | null {
+    const candidate = this.getCandidate(candidateId);
+    const asset = candidate?.plan.assets.find((entry) => entry.id === assetId);
+    if (!candidate || !asset || asset.format !== "html") return null;
+
+    const primary = this.getFile(candidateId, asset.file_id);
+    if (!primary) return null;
+    if (!relativePath) return primary;
+
+    const normalized = relativePath.split("/");
+    if (normalized.length === 0 || normalized.some((part) => !part || part === "." || part === ".." || part.includes("\\"))) {
+      return null;
+    }
+
+    const directory = posix.dirname(primary.path);
+    const fileIds = [asset.file_id, ...asset.dependency_file_ids];
+    for (const fileId of fileIds) {
+      const candidateFile = this.getFile(candidateId, fileId);
+      if (!candidateFile) continue;
+      if (posix.relative(directory, candidateFile.path) === relativePath) return candidateFile;
+    }
+    return null;
   }
 
   getState(): RuntimeState {
