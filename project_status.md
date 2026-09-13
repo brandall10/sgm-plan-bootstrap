@@ -1,9 +1,9 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-12
-**Current state:** W01 implementation plan accepted and committed; no product implementation or verification performed.
-**Recommended next work:** Activate W01 through `status-next`.
-**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted; execution not started).
+**Current state:** W01 implementation plan accepted, committed, and active; no product implementation or verification performed.
+**Recommended next work:** Begin P1 through `status-next`.
+**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; execution not started).
 
 ## Goal and observed baseline
 
@@ -17,7 +17,7 @@ This file is the sole source of truth for proposed work, actual plan links, prio
 
 | ID | Proposed plan outcome | Scope and prerequisites | Specification references | State / actual plan |
 | --- | --- | --- | --- | --- |
-| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); committed, execution not started |
+| W01 | Open and refresh a saved package | Representative sample, minimal package core, reusable viewer, coherent watcher; inspect current repository and probe native presentation | [Minimum content](docs/specs/01-plan-package.md#minimum-content), [phase meaning](docs/specs/01-plan-package.md#phase-meaning-and-dependencies), [example](docs/specs/01-plan-package.md#representative-example); [components](docs/specs/02-viewer-and-review.md#reusable-components), [application boundaries](docs/specs/02-viewer-and-review.md#application-boundaries), [updates](docs/specs/02-viewer-and-review.md#coherent-file-updates), [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop) | [Accepted plan](docs/plans/2026-09-12-01-package-viewer/plan.md); committed and active, execution not started |
 | W02 | Refine, accept, and reopen the same proposal | Native feedback plus preserved reviewed assets and clear draft/accepted views; requires a usable viewer and actual host-surface findings | [Visual meaning](docs/specs/01-plan-package.md#visual-meaning), [revisions and acceptance](docs/specs/01-plan-package.md#revisions-and-acceptance); [native loop](docs/specs/02-viewer-and-review.md#native-annotation-loop), [comparison](docs/specs/02-viewer-and-review.md#acceptance-and-comparison) | Proposed; no plan yet |
 | W03 | Retrieve phase context and predecessor results | Shared selector/CLI and demonstrable result handling in the product; requires package/revision semantics, not an SGM graph | [Context selection](docs/specs/03-execution-and-integration.md#context-selection), [operations](docs/specs/03-execution-and-integration.md#operations), [readiness](docs/specs/03-execution-and-integration.md#readiness-and-revisions), [product results](docs/specs/03-execution-and-integration.md#durable-results-in-the-product) | Proposed; no plan yet |
 | W04 | Use the workflow on a real change | Thin adapters and a two-phase change in a separate trial project, including a fresh-session handoff; requires usable package/viewer/context capabilities | [Skill integration](docs/specs/03-execution-and-integration.md#planning-skill-integration), [verification](docs/specs/03-execution-and-integration.md#verification-and-completion), [correctness and usefulness](docs/specs/03-execution-and-integration.md#observable-correctness-and-usefulness); [performance](docs/specs/02-viewer-and-review.md#performance-and-proportionality) | Proposed; no plan yet |
@@ -79,4 +79,4 @@ Broader SGM comprehension and change-analysis goals remain relevant, but this ro
 
 ### W01 acceptance — 2026-09-12
 
-- User acceptance promoted W01 from proposal to the active committed plan. The plan and this project-status update are committed together; implementation and `status.md` activation have not started.
+- User acceptance promoted W01 from proposal to the active committed plan. The plan and project-status update were committed together; `status.md` is now activated, while implementation has not started.
