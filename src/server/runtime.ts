@@ -186,6 +186,15 @@ async function handleRequest(
     writeJson(response, 200, store.getState());
     return true;
   }
+  if (url.pathname === "/api/acceptances") {
+    const state = store.getState();
+    writeJson(response, 200, {
+      package_id: state.packageId,
+      records: state.acceptances,
+      diagnostics: state.acceptanceDiagnostics,
+    });
+    return true;
+  }
   if (parts.length === 4 && parts[0] === "api" && parts[1] === "candidates" && parts[3] === "model") {
     const candidateId = pathPart(parts[2] ?? "");
     if (!candidateId) {

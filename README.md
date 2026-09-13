@@ -81,6 +81,12 @@ evidence of a working exercise product. After changing a declared package
 file, republish its manifest atomically with `npm run publish -- --package
 <package-directory>`.
 
+The runtime creates an ignored `.plan-package/` directory beside the selected
+package. It stores immutable snapshot descriptors and bytes before a candidate
+is displayed. Use the explicit `npm run accept -- ...` command documented in
+[the package format guide](docs/package-format.md#durable-snapshots-and-acceptance)
+to record authorized acceptance provenance for a concrete snapshot.
+
 Run the local verification suite with `npm run typecheck`, `npm run lint`,
 `npm test`, `npm run test:e2e`, and `npm run build`. Use `npm run measure` for
 the five-run local load/render/refresh baseline. The browser checks use the

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { startRuntime } from "./runtime.js";
 import { publishPackage } from "./publication.js";
+import { SnapshotStore } from "./snapshot-store.js";
 
 const repositoryRoot = resolve(process.cwd());
 
@@ -42,6 +43,59 @@ async function readSseEvent(
 }
 
 describe("local package runtime", () => {
+  it("publishes only after durable snapshot persistence and refreshes acceptance history", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-acceptance-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const runtime = await startRuntime({ packageRoot, port: 0, watch: false });
+
+    try {
+      const before = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as {
+        packageId: string;
+        currentCandidateId: string | null;
+        currentSnapshotId: string | null;
+        acceptances: Array<{ record_id: string }>;
+      };
+      if (!before.currentSnapshotId) throw new Error("Runtime did not publish a durable snapshot.");
+      if (!before.currentCandidateId) throw new Error("Runtime did not expose its content candidate.");
+      const candidateModel = await (await fetch(`http://${runtime.host}:${runtime.port}/api/candidates/${before.currentCandidateId}/model`)).json() as {
+        acceptance_status: string;
+        snapshot_id: string;
+        readiness: string;
+      };
+      const snapshotStore = new SnapshotStore({ root: join(packageRoot, ".plan-package") });
+      const acceptance = await snapshotStore.recordAcceptance({
+        format: "plan-package-acceptance",
+        format_version: "1",
+        record_id: "acceptance.runtime-test",
+        package_id: before.packageId,
+        snapshot_id: before.currentSnapshotId,
+        instruction: "I accept the saved proposal for this runtime test.",
+        source: "conversation:runtime-test",
+        actor: "test:runtime",
+        recorded_at: "2026-09-13T16:30:00.000Z",
+        illustrative: true,
+      });
+      expect(acceptance.created).toBe(true);
+      const reloaded = await (await fetch(`http://${runtime.host}:${runtime.port}/api/reload`, { method: "POST" })).json() as {
+        acceptances: Array<{ record_id: string }>;
+      };
+      const history = await (await fetch(`http://${runtime.host}:${runtime.port}/api/acceptances`)).json() as {
+        records: Array<{ record_id: string }>;
+      };
+      const afterModel = await (await fetch(`http://${runtime.host}:${runtime.port}/api/candidates/${before.currentCandidateId}/model`)).json() as { acceptance_status: string };
+
+      expect(candidateModel.acceptance_status).toBe("unverified");
+      expect(candidateModel.snapshot_id).toBe(before.currentSnapshotId);
+      expect(candidateModel.readiness).toBe("reviewable");
+      expect(afterModel.acceptance_status).toBe("illustrative");
+      expect(reloaded.acceptances.map((record) => record.record_id)).toContain("acceptance.runtime-test");
+      expect(history.records.map((record) => record.record_id)).toContain("acceptance.runtime-test");
+    } finally {
+      await runtime.close();
+    }
+  });
+
   it("returns the immutable model and captured asset for a candidate", async () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-"));
     const packageRoot = join(temporaryRoot, "save-outcome");

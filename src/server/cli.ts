@@ -50,7 +50,11 @@ console.log(`Plan Package viewer listening at http://${runtime.host}:${runtime.p
 const state = runtime.store.getState();
 if (state.currentCandidateId) {
   console.log(`Loaded ${state.packageId} revision ${state.currentRevision} as ${state.currentCandidateId}`);
+  console.log(`Durable snapshot ${state.currentSnapshotId ?? "unavailable"}`);
 }
 if (state.diagnostics.length > 0) {
   for (const line of diagnosticSummary(state.diagnostics)) console.warn(line);
+}
+if (state.planningBlockers.length > 0) {
+  for (const line of diagnosticSummary(state.planningBlockers)) console.warn(line);
 }

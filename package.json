@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && vite build",
+    "accept": "tsx src/server/accept-package.ts",
     "dev": "tsx src/server/cli.ts",
     "lint": "eslint .",
     "measure": "tsx src/server/measure-runtime.ts",

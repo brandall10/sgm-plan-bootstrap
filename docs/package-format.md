@@ -10,7 +10,7 @@ readiness.
 
 | Field | Meaning |
 | --- | --- |
-| `id`, `title`, `revision`, `state` | Stable identity, human title, positive author revision, and `draft`/`accepted` state |
+| `id`, `title`, `revision`, `state` | Stable identity, human title, positive author revision, and legacy author metadata (`draft`/`accepted`) |
 | `goal_md`, `scope`, `constraints` | Inline Markdown intent, included/excluded boundaries, and shared obligations |
 | `phases` | Stable phase IDs, objective/approach Markdown, `depends_on` phase IDs, and exact `acceptance_criteria` |
 | `references` | Local file references or non-fetched HTTP(S) references, with purpose, applicability, and requiredness |
@@ -31,9 +31,12 @@ used to reinterpret a package-relative path.
 Local references and required assets must resolve to a declared file. External
 references are not fetched. A required external reference is complete only when
 `local_file_id` points to a retained local copy. Optional external references
-produce a visible informational diagnostic. Open blocking questions, missing
-required files, digest mismatches, unsupported semantics, unknown relationships,
-and dependency cycles prevent a candidate from being published.
+produce a visible informational diagnostic. Missing required files, digest
+mismatches, unsupported semantics, unknown relationships, and dependency cycles
+prevent a candidate from being published. Open blocking questions remain
+visible as planning blockers: they prevent executable/readiness claims but do
+not prevent a coherent proposal from being reviewed, saved, or accepted as an
+approach.
 
 ## Publication convention
 
@@ -51,6 +54,50 @@ a uniquely named sibling temporary manifest, validates that temporary
 candidate, and atomically renames it over `plan.json`. It does not imply that
 the proposal was accepted or that any exercise product exists. If validation
 fails, the existing manifest is left in place.
+
+The manifest's `state` field is retained for v1 compatibility but never proves
+acceptance. The local runtime derives acceptance only from a durable record;
+the viewer labels a candidate with no selected record as acceptance
+unverified.
+
+## Durable snapshots and acceptance
+
+When the local runtime publishes a candidate it first creates the package's
+ignored `.plan-package/` store. The store contains:
+
+- `blobs/<sha256>` — immutable manifest and captured-file bytes;
+- `snapshots/<full-sha256>.json` — a versioned descriptor containing the exact
+  manifest digest, author revision, compatibility content ID, sorted file
+  inventory, and explicit optional omissions; and
+- `acceptances/<record-id>.json` — append-only, versioned provenance records.
+
+Snapshot IDs are full SHA-256 digests over the exact manifest bytes and the
+deterministic captured inventory. Repository-root files and every selected
+asset dependency are retained in the same way as package-root files. The store
+is excluded from package inputs and is never fetched from external references.
+Existing blobs, descriptors, and records are verified before an identical
+retry is accepted; different bytes under an existing immutable identity fail.
+Reopening a snapshot verifies the descriptor, manifest, every blob digest, and
+the compatibility content ID before serving retained bytes. It never falls
+back to the current draft.
+
+Record an explicit acceptance only after the conversation has authorized it:
+
+```sh
+npm run accept -- \
+  --package examples/save-outcome \
+  --snapshot-id <full-snapshot-sha256> \
+  --record-id acceptance.save-outcome-1 \
+  --actor user:example \
+  --source conversation:user-message-1 \
+  --instruction-file /absolute/path/to/instruction.txt
+```
+
+The command requires a concrete snapshot and UTF-8 instruction file; it never
+selects “latest” implicitly. Reusing a record ID with identical input is
+idempotent (the generated timestamp is not part of the retry identity), while
+conflicting input fails. Acceptance is provenance only: it does not mutate
+`plan.json`, activate execution, or make a blocking question executable.
 
 The runtime reads exact manifest bytes before loading files and rereads them
 afterward. A manifest mutation, missing file, digest mismatch, or path escape
@@ -70,8 +117,9 @@ npm run dev -- --package examples/save-outcome
 ```
 
 The runtime binds to `127.0.0.1` by default and opens the browser viewer at
-`/`. It exposes `/api/health`, `/api/state`, and a server-sent event stream at
-`/api/events`. Candidate-scoped JSON model responses are available at
+`/`. It exposes `/api/health`, `/api/state`, `/api/acceptances`, and a
+server-sent event stream at `/api/events`. Candidate-scoped JSON model
+responses are available at
 `/api/candidates/<content-id>/model`, with captured files/assets at
 `/api/candidates/<content-id>/files/<file-id>` or
 `/api/candidates/<content-id>/assets/<asset-id>`.

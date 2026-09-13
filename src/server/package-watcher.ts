@@ -71,6 +71,10 @@ export class PackageWatcher {
     const manifestPath = resolve(this.loadOptions.manifestPath ?? join(this.loadOptions.packageRoot, "plan.json"));
     paths.add(manifestPath);
     paths.add(dirname(manifestPath));
+    // Acceptance records are outside the draft manifest but their appearance
+    // refreshes the same runtime state/event stream. Never watch blobs or
+    // descriptors, which are immutable implementation details of the store.
+    paths.add(join(this.loadOptions.packageRoot, ".plan-package", "acceptances"));
 
     const candidate = this.store.getCurrentCandidate();
     for (const file of candidate?.plan.files ?? []) {

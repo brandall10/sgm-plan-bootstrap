@@ -18,6 +18,7 @@ export const SUPPORTED_CAPABILITIES = new Set([
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+export const HISTORY_DIRECTORY = ".plan-package";
 const ASSET_FORMATS = new Set([
   "css",
   "html",
@@ -235,6 +236,22 @@ function isSafeRelativePath(value: string): boolean {
   return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
+export function isValidIdentifier(value: string): boolean {
+  return ID_PATTERN.test(value);
+}
+
+export function isSha256(value: string): boolean {
+  return SHA256_PATTERN.test(value);
+}
+
+export function isSafePackageRelativePath(value: string): boolean {
+  return isSafeRelativePath(value);
+}
+
+function isHistoryPath(value: string): boolean {
+  return value === HISTORY_DIRECTORY || value.startsWith(`${HISTORY_DIRECTORY}/`);
+}
+
 function addId(
   id: string | null,
   path: string,
@@ -364,6 +381,9 @@ function parseFiles(
     }
     if (filePath && !isSafeRelativePath(filePath)) {
       diagnostics.push(errorDiagnostic("unsafe-path", `Path '${filePath}' must be a normalized relative path without traversal.`, `${path}.path`, id ?? undefined));
+    }
+    if (filePath && isHistoryPath(filePath)) {
+      diagnostics.push(errorDiagnostic("reserved-history-path", `Path '${filePath}' is reserved for the local snapshot store.`, `${path}.path`, id ?? undefined));
     }
     if (sha256 && !SHA256_PATTERN.test(sha256)) {
       diagnostics.push(errorDiagnostic("invalid-digest", "sha256 must be a lowercase SHA-256 hex digest.", `${path}.sha256`, id ?? undefined));

@@ -8,6 +8,7 @@ import type { FileResolver, ResolvedFile } from "../core/resolve.js";
 export interface RuntimeRoots {
   packageRoot: string;
   repositoryRoot?: string;
+  forbiddenRoots?: string[];
 }
 
 export interface DeclaredPath {
@@ -75,6 +76,23 @@ export async function resolveDeclaredPath(file: PackageFile, roots: RuntimeRoots
       `files.${file.id}.path`,
       file.id,
     );
+  }
+
+  for (const forbiddenRoot of roots.forbiddenRoots ?? []) {
+    let realForbiddenRoot: string;
+    try {
+      realForbiddenRoot = await realpath(forbiddenRoot);
+    } catch {
+      continue;
+    }
+    if (isWithinRoot(realForbiddenRoot, realPath)) {
+      return errorDiagnostic(
+        "reserved-history-path",
+        `Declared file '${file.path}' resolves inside a reserved runtime store.`,
+        `files.${file.id}.path`,
+        file.id,
+      );
+    }
   }
 
   return { root: file.root, declaredPath: file.path, absolutePath, realPath };

@@ -6,16 +6,18 @@ HTTP authority to the local runtime.
 | Boundary | Responsibility | Deliberate exclusions |
 | --- | --- | --- |
 | `src/core` | Parse/validate the inline contract, check relationships, resolve supplied file bytes, and describe a deterministic content-ID input | Node filesystem, HTTP, browser rendering, and publication writes |
-| `src/server` | Resolve declared roots with real-path confinement, capture and digest files, fence manifest mutation and overlapping loads, publish atomically, watch declared inputs, broadcast candidate state, serve candidate-scoped responses, and mount the local viewer | Agent sessions, annotations, write APIs, and package-content mutation |
+| `src/server` | Resolve declared roots with real-path confinement, capture and digest files, fence manifest mutation and overlapping loads, persist content-addressed snapshots and append-only acceptance records atomically, publish only after persistence, watch declared inputs, broadcast candidate state, serve candidate-scoped responses, and mount the local viewer | Agent sessions, annotations, write APIs, and package-content mutation |
 | `src/viewer` | Consume the resolved runtime model; render reusable overview/phase navigation, criteria, decisions/questions, diagrams, safe narrative, sandboxed prototype frames, live connection state, and navigation recovery | Package parsing, filesystem access, custom feedback transport, package watching, and native host presentation adapters |
 | `examples` | Data-driven illustrative packages and their declared local dependencies | Evidence that the described exercise behavior is implemented |
 
 The `CandidateStore` is the small runtime model interface shared by the viewer
 and watcher. It can retain multiple successful candidates by content ID, returns
-copies of captured bytes, never replaces the current candidate when a new load
-fails, and serializes/generation-fences load requests so a slower older request
-cannot publish after a newer one has been requested. Its runtime state retains
-the last valid candidate identity alongside the most recent attempt diagnostics.
+copies of captured bytes, persists each candidate before publication, never
+replaces the current candidate when a new load or snapshot write fails, and
+serializes/generation-fences load requests so a slower older request cannot
+publish after a newer one has been requested. Its runtime state retains the
+last valid candidate identity, durable snapshot ID, acceptance history, and the
+most recent attempt diagnostics.
 
 The server's HTML-prototype route is deliberately narrower than its ordinary
 asset route. It exposes a declared HTML asset and only its declared relative

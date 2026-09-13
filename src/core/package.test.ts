@@ -118,4 +118,20 @@ describe("plan package validation", () => {
     expect(codes).toContain("unsupported-required-capability");
     expect(codes).toContain("unsafe-path");
   });
+
+  it("reserves the local history store from package inputs", () => {
+    const packageValue = minimalPackage();
+    packageValue["files"] = [{
+      id: "file.history",
+      root: "package",
+      path: ".plan-package/snapshots/example.json",
+      sha256: "a".repeat(64),
+      required: true,
+    }];
+
+    const result = validatePlanPackage(packageValue);
+
+    expect(result.valid).toBe(false);
+    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("reserved-history-path");
+  });
 });
