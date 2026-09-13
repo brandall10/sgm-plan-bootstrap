@@ -1,13 +1,13 @@
 # SGM Plan Package experiment
 
-Build a repeatable local viewer for saved plans, then test native review and focused execution. The design is described in three capability specifications. **project_status.md is the single source of truth for the proposed work structure and durable project memory.**
+Build a repeatable local viewer for saved plans, then test native review and focused execution. The design is described in three capability specifications. **project_status.md is the compact source of truth for the proposed work structure and current project memory; detailed execution evidence lives with each plan.**
 
 ## Start development
 
 1. Read [project_status.md](project_status.md) for the actual state, recommended outcome, and relevant specification sections.
 2. Use the existing planning skill to develop only the selected work item, after inspecting current code and applicable instructions.
 3. Review that implementation plan. Once accepted and authorized, use `status-next` to execute its PR-sized phases.
-4. Keep active working notes in `status.md` and durable progress, decisions, and evidence links in `project_status.md`.
+4. Keep the active checklist in root `status.md`; keep concise durable decisions and links in `project_status.md`; keep detailed execution evidence in each plan's `results.md`.
 
 The proposed work structure can be partial. A specification does not need a corresponding roadmap item, and adding a specification does not create a commitment to implement it. Work items can be split, combined, reordered, replaced, or retired directly in project_status.md as understanding changes.
 
@@ -26,16 +26,16 @@ Read them in that order for the complete design. During focused work, follow the
 | File or artifact | Responsibility while building this experiment |
 | --- | --- |
 | `docs/specs/` | Read-only design inputs: intended behavior, constraints, examples, and verification expectations |
-| `project_status.md` | Durable memory: current priorities, proposed plan structure, actual plan links, material decisions, progress, blockers, and evidence links |
-| Root `status.md` | Active working memory: source plan pointer, phase checklist, current findings, attempts, and next actions |
+| `project_status.md` | Compact durable index: current priorities, active plan links, short decisions/blockers, and links to results; target roughly 500 words or fewer |
+| Root `status.md` | The single active checklist for the current plan: source plan pointer, phase tasks, blockers, and next action |
 | Accepted implementation plan | Detailed approach and instructions for the selected scope |
 | Code, test output, screenshots, and other evidence | Supporting artifacts linked from the memory files; they do not create another work queue |
 
-Do not write completion marks, run results, implementation notes, roadmap IDs, or tracking tables into the specifications. If implementation reveals a conflict or design question, record it in the memory files. Preserve the specified intent while resolving ordinary implementation choices; propose an explicit design revision if the intent needs to change. Editing a spec requires an explicitly authorized design change, not an automatic end-of-phase update.
+Do not write completion marks, run results, implementation notes, roadmap IDs, or tracking tables into the specifications. If implementation reveals a conflict or design question, record the concise decision in the memory files and put detailed evidence in the plan's results. Preserve the specified intent while resolving ordinary implementation choices; propose an explicit design revision if the intent needs to change. Editing a spec requires an explicitly authorized design change, not an automatic end-of-phase update.
 
 The specs describe richer plan/execution records that the product may eventually maintain. Those future structures do not replace these two memory files during this experiment.
 
-Root status.md and project_status.md belong in version control and must not be ignored. Before resetting it, move consequential findings, progress, decisions, and evidence links into project_status.md. Root status.md is the one active execution checklist; plan directories contain plan.md and, when needed, results.md, but must not contain another status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning; treat any plan-local status.md as a stale duplicate to reconcile and remove.
+Root status.md and project_status.md belong in version control and must not be ignored. Before resetting it, move only concise consequential decisions, blockers, and links into project_status.md; move detailed findings and evidence to the plan's results.md. Keep project_status.md roughly under 500 words/100 lines; compress or move detail to results.md before it grows beyond that budget. Root status.md is the one active execution checklist, and every plan's checklist uses that root location. Plan directories contain plan.md and, when needed, results.md, but must not contain another status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning; reconcile the root checklist when the selected plan changes.
 
 ## Planning and execution conventions
 
@@ -49,7 +49,7 @@ Existing user authorization may cover acceptance and execution together. Preserv
 
 Suggested first instruction to the planning agent:
 
-> Read README.md and project_status.md. Use my existing planning skill to develop W01, following its linked spec sections and inspecting the current repository. Keep docs/specs read-only. Produce one Markdown implementation plan compatible with status-next, including the representative package, reusable web viewer, coherent file watching, native-surface probe, and local behavioral checks. Resolve ordinary engineering choices yourself. Record the proposed plan link and any material planning findings in project_status.md. Do not expand future work items or begin implementation in this planning invocation.
+> Read README.md and project_status.md. Use my existing planning skill to develop W01, following its linked spec sections and inspecting the current repository. Keep docs/specs read-only. Produce one Markdown implementation plan compatible with status-next, including the representative package, reusable web viewer, coherent file watching, native-surface probe, and local behavioral checks. Resolve ordinary engineering choices yourself. Record the proposed plan link and only concise planning decisions or blockers in project_status.md; keep detailed findings in the plan or results record. Do not expand future work items or begin implementation in this planning invocation.
 
 ## Adopting this bundle
 
