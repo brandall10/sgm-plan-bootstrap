@@ -195,6 +195,136 @@ async function handleRequest(
     });
     return true;
   }
+  if (url.pathname === "/api/history" || url.pathname === "/api/snapshots") {
+    writeJson(response, 200, await store.getHistory(reloadOptions));
+    return true;
+  }
+  if (url.pathname === "/api/compare" || url.pathname === "/api/comparison") {
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
+    if (!from || !to) {
+      writeJson(response, 400, { diagnostics: [{ code: "comparison-selection-required", message: "Comparison requires both from and to snapshot selections.", path: "$", severity: "error" satisfies Diagnostic["severity"] }] });
+      return true;
+    }
+    const result = await store.compare(reloadOptions, from, to);
+    writeJson(response, result.value ? 200 : 404, result);
+    return true;
+  }
+  if (parts.length === 3 && parts[0] === "api" && parts[1] === "draft" && parts[2] === "model") {
+    const model = store.getDraftModel();
+    if (!model) {
+      notFound(response, "The working draft is not available.", url.pathname);
+      return true;
+    }
+    writeJson(response, 200, model);
+    return true;
+  }
+  if (parts.length >= 4 && parts[0] === "api" && parts[1] === "draft" && parts[2] === "prototypes") {
+    const candidateId = store.getState().currentCandidateId;
+    const assetId = pathPart(parts[3] ?? "");
+    const prototypePath = relativePrototypePath(parts.slice(4));
+    if (!candidateId || !assetId || prototypePath === null) {
+      notFound(response, "Draft, prototype, or declared dependency path is invalid.", url.pathname);
+      return true;
+    }
+    const resource = store.getPrototypeFile(candidateId, assetId, prototypePath || undefined);
+    if (!resource) {
+      notFound(response, `Prototype '${assetId}' or its declared dependency is not available for the working draft.`, url.pathname);
+      return true;
+    }
+    writeResource(response, resource, candidateId, prototypeContentSecurityPolicy(viewerOrigin), "cross-origin");
+    return true;
+  }
+  if (parts.length === 4 && parts[0] === "api" && parts[1] === "draft" && parts[2] !== "") {
+    const resourceType = parts[2];
+    const resourceId = pathPart(parts[3] ?? "");
+    const candidateId = store.getState().currentCandidateId;
+    if (!candidateId || !resourceId) {
+      notFound(response, "Draft or resource ID is invalid.", url.pathname);
+      return true;
+    }
+    const resource = resourceType === "assets"
+      ? store.getAsset(candidateId, resourceId)
+      : resourceType === "files"
+        ? store.getFile(candidateId, resourceId)
+        : null;
+    if (!resource) {
+      notFound(response, `Resource '${resourceId}' is not available for the working draft.`, url.pathname);
+      return true;
+    }
+    if (resourceType === "assets" && isRuntimeAssetResponse(resource) && resource.asset.format === "html") {
+      notFound(response, `HTML prototype '${resourceId}' is available only through its isolated prototype route.`, url.pathname);
+      return true;
+    }
+    writeResource(response, resource, candidateId, ASSET_CONTENT_SECURITY_POLICY);
+    return true;
+  }
+  if (parts.length === 4 && parts[0] === "api" && parts[1] === "snapshots" && parts[3] === "model") {
+    const snapshotId = pathPart(parts[2] ?? "");
+    if (!snapshotId) {
+      notFound(response, "Snapshot ID is invalid.", url.pathname);
+      return true;
+    }
+    const result = await store.getSnapshotModel(reloadOptions, snapshotId);
+    if (!result.model) {
+      writeJson(response, 404, { diagnostics: result.diagnostics });
+      return true;
+    }
+    writeJson(response, 200, result.model);
+    return true;
+  }
+  if (parts.length >= 5 && parts[0] === "api" && parts[1] === "snapshots" && parts[3] === "prototypes") {
+    const snapshotId = pathPart(parts[2] ?? "");
+    const assetId = pathPart(parts[4] ?? "");
+    const prototypePath = relativePrototypePath(parts.slice(5));
+    if (!snapshotId || !assetId || prototypePath === null) {
+      notFound(response, "Snapshot, prototype, or declared dependency path is invalid.", url.pathname);
+      return true;
+    }
+    try {
+      await store.openSnapshot(reloadOptions, snapshotId);
+    } catch (error) {
+      writeJson(response, 404, { diagnostics: [{ code: "snapshot-unavailable", message: error instanceof Error ? error.message : `Snapshot '${snapshotId}' is unavailable.`, path: url.pathname, severity: "error" satisfies Diagnostic["severity"] }] });
+      return true;
+    }
+    const resource = store.getSnapshotPrototypeFile(snapshotId, assetId, prototypePath || undefined);
+    if (!resource) {
+      notFound(response, `Prototype '${assetId}' or its declared dependency is not available for snapshot '${snapshotId}'.`, url.pathname);
+      return true;
+    }
+    writeResource(response, resource, snapshotId, prototypeContentSecurityPolicy(viewerOrigin), "cross-origin");
+    return true;
+  }
+  if (parts.length === 5 && parts[0] === "api" && parts[1] === "snapshots") {
+    const snapshotId = pathPart(parts[2] ?? "");
+    const resourceType = parts[3];
+    const resourceId = pathPart(parts[4] ?? "");
+    if (!snapshotId || !resourceId) {
+      notFound(response, "Snapshot or resource ID is invalid.", url.pathname);
+      return true;
+    }
+    try {
+      await store.openSnapshot(reloadOptions, snapshotId);
+    } catch (error) {
+      writeJson(response, 404, { diagnostics: [{ code: "snapshot-unavailable", message: error instanceof Error ? error.message : `Snapshot '${snapshotId}' is unavailable.`, path: url.pathname, severity: "error" satisfies Diagnostic["severity"] }] });
+      return true;
+    }
+    const resource = resourceType === "assets"
+      ? store.getSnapshotAsset(snapshotId, resourceId)
+      : resourceType === "files"
+        ? store.getSnapshotFile(snapshotId, resourceId)
+        : null;
+    if (!resource) {
+      notFound(response, `Resource '${resourceId}' is not available for snapshot '${snapshotId}'.`, url.pathname);
+      return true;
+    }
+    if (resourceType === "assets" && isRuntimeAssetResponse(resource) && resource.asset.format === "html") {
+      notFound(response, `HTML prototype '${resourceId}' is available only through its isolated prototype route.`, url.pathname);
+      return true;
+    }
+    writeResource(response, resource, snapshotId, ASSET_CONTENT_SECURITY_POLICY);
+    return true;
+  }
   if (parts.length === 4 && parts[0] === "api" && parts[1] === "candidates" && parts[3] === "model") {
     const candidateId = pathPart(parts[2] ?? "");
     if (!candidateId) {
