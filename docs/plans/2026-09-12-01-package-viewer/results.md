@@ -41,4 +41,4 @@ No P2 implementation or native-surface probe outcome recorded. P2 is gated on P1
 
 No P3 refresh/recovery or performance outcome recorded.
 
-Next action: deliver and integrate P1, then resume with P2 using the checklist in the root `status.md`.
+Next action: P1 is closed out. If work resumes, select P2 through `status-next` using the checklist in the root `status.md`.
