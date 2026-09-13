@@ -2,9 +2,9 @@
 
 Source plan: [W02 — Refine, accept, and reopen the same proposal](plan.md)
 
-State: P1 implementation and required local verification are complete; scoped PR delivery is pending. The accepted plan remains unchanged at `2411338f9f288fc31be67f9eb63d57ff21567220`.
+State: P1 implementation and required local verification are complete; the user approved PR #4 and merge/integration are pending. The accepted plan remains unchanged at `2411338f9f288fc31be67f9eb63d57ff21567220`.
 
-Next action: push `feat/proposal-acceptance-phase-p1-snapshots` and open its PR against `main`; then record review/merge state here without claiming integration before it is observed.
+Next action: merge PR #4 against `main`; then record remote and local integration only after it is observed.
 
 ## P1
 
@@ -35,7 +35,7 @@ Next action: push `feat/proposal-acceptance-phase-p1-snapshots` and open its PR 
 ### Delivery
 
 - Implementation: complete and verified locally.
-- Review/merge: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) is open against `main` at head `c8efa27dc28c946a4660505e1736c69d1ee2f83e`; review/merge is pending.
+- Review/merge: the user approved [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4), which is open against `main` at head `d403f37656ec56a6c714250c7647828d126751fa`; merge is pending.
 - Integration: not merged into `main`.
 
 ## P2
