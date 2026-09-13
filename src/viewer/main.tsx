@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ReactElement, ReactNode } from "react";
 
@@ -32,7 +32,10 @@ interface RuntimeState {
   currentCandidateId: string | null;
   currentRevision: number | null;
   diagnostics: Diagnostic[];
+  lastAttempt: "published" | "rejected" | null;
 }
+
+type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
 
 interface Route {
   packageId: string | null;
@@ -139,6 +142,28 @@ function DiagnosticPanel({ diagnostics }: { diagnostics: readonly Diagnostic[] }
   );
 }
 
+function RuntimeStatus({ connection, state, transportError }: {
+  connection: ConnectionStatus;
+  state: RuntimeState | null;
+  transportError?: string | null;
+}): ReactElement {
+  const connectionTone = connection === "connected" ? "info" : connection === "offline" ? "error" : "warning";
+  const connectionLabel = connection === "connected" ? "connected" : connection === "reconnecting" ? "reconnecting" : connection;
+  return (
+    <section aria-live="polite" className={`runtime-status runtime-status--${connection}`} data-testid="runtime-status">
+      <p>
+        <Chip tone={connectionTone}>
+          <span data-testid="connection-status">Live refresh · {connectionLabel}</span>
+        </Chip>
+      </p>
+      {state?.lastAttempt === "rejected"
+        ? <p data-testid="last-valid-notice">The current edit was rejected; showing the last valid revision {state.currentRevision ?? "(none)"}. Diagnostics below describe the rejected candidate.</p>
+        : null}
+      {transportError ? <p role="alert">{transportError}</p> : null}
+    </section>
+  );
+}
+
 function ScopeLists({ plan }: { plan: PlanPackage }): ReactElement {
   return (
     <div className="scope-grid">
@@ -228,7 +253,7 @@ function DecisionQuestionPanel({ packageId, plan, phase }: { packageId: string; 
           <h3><ItemLink packageId={packageId} itemId={decision.id}>{decision.title}</ItemLink></h3>
           <p className="item-id"><ItemId packageId={packageId} itemId={decision.id} /></p>
           <SafeMarkdown source={decision.decision_md} />
-          {decision.rationale_md ? <details><summary>Rationale</summary><SafeMarkdown source={decision.rationale_md} /></details> : null}
+          {decision.rationale_md ? <details data-item-id={decision.id}><summary>Rationale</summary><SafeMarkdown source={decision.rationale_md} /></details> : null}
           <p className="applies-label">Applies to</p>
           <ApplicabilityLinks packageId={packageId} itemIds={decision.applies_to} />
         </article>
@@ -395,7 +420,49 @@ function TargetDetail({ item, model }: { item: AddressedItem; model: ViewerModel
   return null;
 }
 
-function ViewerHeader({ model, route, onReload, loading }: { model: ViewerModel; route: Route; onReload: () => void; loading: boolean }): ReactElement {
+interface ViewportSnapshot {
+  scrollY: number;
+  anchorId: string | null;
+  anchorTop: number | null;
+  openDetailIds: string[];
+}
+
+function captureViewport(route: Route): ViewportSnapshot {
+  const anchor = route.itemId ? document.getElementById(`item-${route.itemId}`) : null;
+  return {
+    scrollY: window.scrollY,
+    anchorId: anchor?.id ?? null,
+    anchorTop: anchor?.getBoundingClientRect().top ?? null,
+    openDetailIds: Array.from(document.querySelectorAll<HTMLDetailsElement>("details[data-item-id][open]"))
+      .map((detail) => detail.dataset["itemId"])
+      .filter((id): id is string => Boolean(id)),
+  };
+}
+
+function restoreViewport(snapshot: ViewportSnapshot): void {
+  window.requestAnimationFrame(() => {
+    const anchor = snapshot.anchorId ? document.getElementById(snapshot.anchorId) : null;
+    if (anchor && snapshot.anchorTop !== null) {
+      window.scrollTo(0, Math.max(0, window.scrollY + anchor.getBoundingClientRect().top - snapshot.anchorTop));
+    } else {
+      window.scrollTo(0, snapshot.scrollY);
+    }
+    for (const detailId of snapshot.openDetailIds) {
+      const detail = document.querySelector<HTMLDetailsElement>(`details[data-item-id="${CSS.escape(detailId)}"]`);
+      if (detail) detail.open = true;
+    }
+  });
+}
+
+function ViewerHeader({ model, route, state, connection, transportError, onReload, loading }: {
+  model: ViewerModel;
+  route: Route;
+  state: RuntimeState;
+  connection: ConnectionStatus;
+  transportError: string | null;
+  onReload: () => void;
+  loading: boolean;
+}): ReactElement {
   const selected = route.itemId ? "linked item" : "overview";
   const stateLabel = model.package.state === "accepted" ? "Accepted proposal" : "Draft proposal";
   return (
@@ -407,19 +474,28 @@ function ViewerHeader({ model, route, onReload, loading }: { model: ViewerModel;
       </div>
       <dl className="revision-summary">
         <div><dt>Package ID</dt><dd><code>{model.package_id}</code></dd></div>
-        <div><dt>Author revision</dt><dd>{model.revision}</dd></div>
-        <div><dt>Content ID</dt><dd><code>{model.content_id}</code></dd></div>
+        <div><dt>Author revision</dt><dd data-testid="current-revision">{model.revision}</dd></div>
+        <div><dt>Content ID</dt><dd data-testid="content-id"><code>{model.content_id}</code></dd></div>
         <div><dt>Readiness</dt><dd><Chip tone="info">{model.readiness}</Chip></dd></div>
       </dl>
       <div className="header-actions">
         <button disabled={loading} onClick={onReload} type="button">{loading ? "Reloading…" : "Reload package"}</button>
-        <p>Manual reload is available now; live refresh arrives in P3.</p>
+        <p>Declared package inputs refresh automatically; the last valid view remains during rejected edits.</p>
+        <RuntimeStatus connection={connection} state={state} transportError={transportError} />
       </div>
     </header>
   );
 }
 
-function LoadedViewer({ model, state, loading, onReload }: { model: ViewerModel; state: RuntimeState; loading: boolean; onReload: () => void }): ReactElement {
+function LoadedViewer({ model, state, connection, transportError, navigationNotice, loading, onReload }: {
+  model: ViewerModel;
+  state: RuntimeState;
+  connection: ConnectionStatus;
+  transportError: string | null;
+  navigationNotice: string | null;
+  loading: boolean;
+  onReload: () => void;
+}): ReactElement {
   const [routeVersion, setRouteVersion] = useState(0);
   useEffect(() => {
     const onHashChange = (): void => setRouteVersion((version) => version + 1);
@@ -441,7 +517,7 @@ function LoadedViewer({ model, state, loading, onReload }: { model: ViewerModel;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#viewer-main">Skip to package content</a>
-      <ViewerHeader loading={loading} model={model} onReload={onReload} route={route} />
+      <ViewerHeader connection={connection} loading={loading} model={model} onReload={onReload} route={route} state={state} transportError={transportError} />
       <div className="viewer-layout">
         <aside className="viewer-sidebar">
           <a className={!route.itemId ? "overview-link overview-link--active" : "overview-link"} href={routeFor(model.package_id)}>Overview</a>
@@ -449,6 +525,7 @@ function LoadedViewer({ model, state, loading, onReload }: { model: ViewerModel;
         </aside>
         <main id="viewer-main" tabIndex={-1}>
           {routeError ? <aside className="route-error" data-testid="route-error" role="alert"><h2>Link target unavailable</h2><p>{routeError}</p><a href={routeFor(model.package_id)}>Return to package overview</a></aside> : null}
+          {navigationNotice ? <aside className="navigation-notice" data-testid="navigation-notice" role="status"><h2>Navigation updated</h2><p>{navigationNotice}</p></aside> : null}
           <DiagnosticPanel diagnostics={[...state.diagnostics, ...model.diagnostics.filter((diagnostic) => !state.diagnostics.some((stateDiagnostic) => stateDiagnostic.code === diagnostic.code && stateDiagnostic.path === diagnostic.path))]} />
           {selectedPhase ? <PhaseDetail highlightedCriterionId={selected?.criterion?.id} model={model} phase={selectedPhase} /> : <Overview model={model} />}
           {selected && !selectedPhase ? <TargetDetail item={selected} model={model} /> : null}
@@ -458,12 +535,19 @@ function LoadedViewer({ model, state, loading, onReload }: { model: ViewerModel;
   );
 }
 
-function EmptyRuntime({ state }: { state: RuntimeState | null }): ReactElement {
+function EmptyRuntime({ state, connection, transportError, onRetry }: {
+  state: RuntimeState | null;
+  connection: ConnectionStatus;
+  transportError: string | null;
+  onRetry: () => void;
+}): ReactElement {
   return (
     <main className="runtime-empty">
       <h1>Package not ready to display</h1>
       <p>The runtime retained no valid candidate. Correct the declared package content, republish its manifest, then reload this page.</p>
+      <RuntimeStatus connection={connection} state={state} transportError={transportError} />
       <DiagnosticPanel diagnostics={state?.diagnostics ?? []} />
+      <button onClick={onRetry} type="button">Try again</button>
     </main>
   );
 }
@@ -473,37 +557,129 @@ function ViewerApp(): ReactElement {
   const [state, setState] = useState<RuntimeState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [transportError, setTransportError] = useState<string | null>(null);
+  const [connection, setConnection] = useState<ConnectionStatus>("connecting");
+  const [navigationNotice, setNavigationNotice] = useState<string | null>(null);
+  const modelRef = useRef<ViewerModel | null>(null);
+  const requestSequence = useRef(0);
+
+  const applyModel = useCallback((nextModel: ViewerModel): void => {
+    const previousModel = modelRef.current;
+    let viewport: ViewportSnapshot | null = null;
+    if (previousModel && previousModel.content_id !== nextModel.content_id) {
+      const route = parseRoute(window.location.hash);
+      viewport = captureViewport(route);
+      const previousItems = itemIndex(previousModel.package);
+      const nextItems = itemIndex(nextModel.package);
+      if (route.packageId === previousModel.package_id && route.packageId !== nextModel.package_id) {
+        window.history.replaceState(null, "", routeFor(nextModel.package_id));
+        window.dispatchEvent(new Event("hashchange"));
+        setNavigationNotice(`The package identity changed from '${previousModel.package_id}' to '${nextModel.package_id}'; showing the new package overview.`);
+        viewport.anchorId = null;
+        viewport.anchorTop = null;
+      } else if (route.packageId === previousModel.package_id && route.itemId && !nextItems.has(route.itemId)) {
+        const removed = previousItems.get(route.itemId);
+        const fallbackId = removed?.phase && nextItems.has(removed.phase.id) ? removed.phase.id : undefined;
+        window.history.replaceState(null, "", routeFor(nextModel.package_id, fallbackId));
+        window.dispatchEvent(new Event("hashchange"));
+        setNavigationNotice(removed
+          ? `The selected ${removed.kind} '${removed.id}' was removed; showing ${fallbackId ? `surviving phase '${fallbackId}'` : "the package overview"}.`
+          : `The selected item '${route.itemId}' was removed; showing ${fallbackId ? `surviving phase '${fallbackId}'` : "the package overview"}.`);
+        viewport.anchorId = fallbackId ? `item-${fallbackId}` : null;
+        viewport.anchorTop = fallbackId ? 0 : null;
+      }
+    }
+    modelRef.current = nextModel;
+    setModel(nextModel);
+    if (viewport) restoreViewport(viewport);
+  }, []);
 
   const load = useCallback(async (revalidate = false) => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
+    setTransportError(null);
     try {
       const nextState = revalidate
         ? await fetchJson<RuntimeState>("/api/reload", { method: "POST" })
         : await fetchJson<RuntimeState>("/api/state");
-      setState(nextState);
-      if (!nextState.currentCandidateId) {
-        setModel(null);
-        return;
+      let nextModel: ViewerModel | null = null;
+      if (nextState.currentCandidateId) {
+        nextModel = await fetchJson<ViewerModel>(`/api/candidates/${encodeURIComponent(nextState.currentCandidateId)}/model`);
       }
-      const nextModel = await fetchJson<ViewerModel>(`/api/candidates/${encodeURIComponent(nextState.currentCandidateId)}/model`);
-      setModel(nextModel);
+      if (requestId !== requestSequence.current) return;
+      setState(nextState);
+      if (nextModel) {
+        applyModel(nextModel);
+      } else {
+        modelRef.current = null;
+        setModel(null);
+      }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The local runtime could not be reached.");
-      setModel(null);
+      if (requestId !== requestSequence.current) return;
+      const message = reason instanceof Error ? reason.message : "The local runtime could not be reached.";
+      if (modelRef.current) {
+        setTransportError(message);
+      } else {
+        setError(message);
+        setModel(null);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
-  }, []);
+  }, [applyModel]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (error) return <main className="runtime-empty"><h1>Viewer connection problem</h1><p role="alert">{error}</p><button onClick={() => void load()} type="button">Try again</button></main>;
-  if (loading && !model) return <main className="runtime-empty" aria-busy="true"><h1>Loading package…</h1></main>;
-  if (!model) return <EmptyRuntime state={state} />;
-  return <LoadedViewer loading={loading} model={model} onReload={() => void load(true)} state={state ?? { packageId: null, currentCandidateId: null, currentRevision: null, diagnostics: [] }} />;
+  useEffect(() => {
+    if (typeof EventSource === "undefined") {
+      setConnection("offline");
+      return;
+    }
+    const source = new EventSource("/api/events");
+    const onOpen = (): void => {
+      setConnection("connected");
+      // A reconnect may have missed several named events. Fetch the complete
+      // state, including diagnostics, before relying on future events.
+      void load();
+    };
+    const onUpdate = (): void => void load();
+    const onError = (): void => {
+      setConnection(source.readyState === EventSource.CLOSED ? "offline" : "reconnecting");
+    };
+    source.addEventListener("open", onOpen);
+    source.addEventListener("state", onUpdate);
+    source.addEventListener("candidate-published", onUpdate);
+    source.addEventListener("candidate-rejected", onUpdate);
+    source.addEventListener("error", onError);
+    return () => {
+      source.removeEventListener("open", onOpen);
+      source.removeEventListener("state", onUpdate);
+      source.removeEventListener("candidate-published", onUpdate);
+      source.removeEventListener("candidate-rejected", onUpdate);
+      source.removeEventListener("error", onError);
+      source.close();
+    };
+  }, [load]);
+
+  const displayState = state ?? { packageId: null, currentCandidateId: null, currentRevision: null, diagnostics: [], lastAttempt: null } satisfies RuntimeState;
+  if (error) {
+    return (
+      <main className="runtime-empty">
+        <h1>Viewer connection problem</h1>
+        <p role="alert">{error}</p>
+        <RuntimeStatus connection={connection} state={state} transportError={transportError} />
+        <button onClick={() => void load()} type="button">Try again</button>
+      </main>
+    );
+  }
+  if (loading && !model) {
+    return <main className="runtime-empty" aria-busy="true"><h1>Loading package…</h1><RuntimeStatus connection={connection} state={state} transportError={transportError} /></main>;
+  }
+  if (!model) return <EmptyRuntime connection={connection} onRetry={() => void load()} state={state} transportError={transportError} />;
+  return <LoadedViewer connection={connection} loading={loading} model={model} navigationNotice={navigationNotice} onReload={() => void load(true)} state={displayState} transportError={transportError} />;
 }
 
 const root = document.getElementById("root");

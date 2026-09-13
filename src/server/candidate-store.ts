@@ -1,4 +1,5 @@
 import type { Diagnostic } from "../core/diagnostics.js";
+import { errorDiagnostic } from "../core/diagnostics.js";
 import { posix } from "node:path";
 
 import type { PackageAsset, PackageFile, PlanPackage } from "../core/package.js";
@@ -32,20 +33,72 @@ export interface RuntimeState {
   currentCandidateId: string | null;
   currentRevision: number | null;
   diagnostics: Diagnostic[];
+  /** Outcome of the most recent candidate load attempt. */
+  lastAttempt: "published" | "rejected" | null;
 }
+
+export interface RuntimeChange {
+  kind: "candidate-published" | "candidate-rejected";
+  state: RuntimeState;
+}
+
+export type RuntimeChangeListener = (change: RuntimeChange) => void;
 
 export class CandidateStore {
   private readonly candidates = new Map<string, LoadedCandidate>();
   private currentCandidateId: string | null = null;
   private lastDiagnostics: Diagnostic[] = [];
+  private lastAttempt: RuntimeState["lastAttempt"] = null;
+  private readonly listeners = new Set<RuntimeChangeListener>();
+  private loadGeneration = 0;
+  private loadQueue: Promise<void> = Promise.resolve();
 
   async loadAndPublish(options: CandidateLoadOptions): Promise<LoadedCandidate | null> {
-    const result = await loadCandidate(options);
-    this.lastDiagnostics = result.diagnostics;
-    if (!result.candidate) return null;
-    this.candidates.set(result.candidate.contentId, result.candidate);
-    this.currentCandidateId = result.candidate.contentId;
-    return result.candidate;
+    const generation = ++this.loadGeneration;
+    const queuedLoad = this.loadQueue.then(async () => {
+      let result: Awaited<ReturnType<typeof loadCandidate>>;
+      try {
+        result = await loadCandidate(options);
+      } catch (error) {
+        result = {
+          candidate: null,
+          manifestPath: options.manifestPath ?? "plan.json",
+          diagnostics: [errorDiagnostic(
+            "candidate-load-failed",
+            error instanceof Error ? error.message : "The package candidate could not be loaded.",
+            "plan.json",
+          )],
+        };
+      }
+
+      // A newer watcher/manual reload request supersedes this load. Queueing
+      // keeps filesystem work serialized; this fence also prevents a slow
+      // older resolution from publishing after a newer request exists.
+      if (generation !== this.loadGeneration) return null;
+
+      this.lastDiagnostics = [...result.diagnostics];
+      if (!result.candidate) {
+        this.lastAttempt = "rejected";
+        this.notify({ kind: "candidate-rejected", state: this.getState() });
+        return null;
+      }
+      this.candidates.set(result.candidate.contentId, result.candidate);
+      this.currentCandidateId = result.candidate.contentId;
+      this.lastAttempt = "published";
+      this.notify({ kind: "candidate-published", state: this.getState() });
+      return result.candidate;
+    });
+    this.loadQueue = queuedLoad.then(() => undefined, () => undefined);
+    return queuedLoad;
+  }
+
+  subscribe(listener: RuntimeChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify(change: RuntimeChange): void {
+    for (const listener of this.listeners) listener(change);
   }
 
   getCandidate(candidateId: string): LoadedCandidate | null {
@@ -127,6 +180,7 @@ export class CandidateStore {
       currentCandidateId: current?.contentId ?? null,
       currentRevision: current?.revision ?? null,
       diagnostics: [...this.lastDiagnostics],
+      lastAttempt: this.lastAttempt,
     };
   }
 }

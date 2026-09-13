@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -8,6 +8,38 @@ import { startRuntime } from "./runtime.js";
 import { publishPackage } from "./publication.js";
 
 const repositoryRoot = resolve(process.cwd());
+
+async function waitFor(check: () => Promise<boolean>, timeoutMs = 4_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise<void>((resolveWait) => setTimeout(resolveWait, 25));
+  }
+  throw new Error(`Condition was not met within ${timeoutMs}ms.`);
+}
+
+type SseBuffer = { value: string };
+
+async function readSseEvent(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  buffer: SseBuffer,
+  expectedEvent: string,
+): Promise<unknown> {
+  while (true) {
+    const boundary = buffer.value.indexOf("\n\n");
+    if (boundary >= 0) {
+      const block = buffer.value.slice(0, boundary);
+      buffer.value = buffer.value.slice(boundary + 2);
+      const event = block.match(/^event: (.+)$/m)?.[1];
+      const data = block.match(/^data: (.+)$/m)?.[1];
+      if (event === expectedEvent && data) return JSON.parse(data) as unknown;
+      continue;
+    }
+    const chunk = await reader.read();
+    if (chunk.done) throw new Error("SSE stream ended before the expected event.");
+    buffer.value += new TextDecoder().decode(chunk.value);
+  }
+}
 
 describe("local package runtime", () => {
   it("returns the immutable model and captured asset for a candidate", async () => {
@@ -101,6 +133,155 @@ describe("local package runtime", () => {
       expect(before.currentCandidateId).not.toBeNull();
       expect(reloaded.currentRevision).toBe(2);
       expect(reloaded.currentCandidateId).not.toBe(before.currentCandidateId);
+    } finally {
+      await runtime.close();
+    }
+  });
+
+  it("publishes filesystem changes, retains the last valid candidate, and recovers", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-watch-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const runtime = await startRuntime({ packageRoot, port: 0, watchDebounceMs: 30 });
+
+    try {
+      const before = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null };
+      const notePath = join(packageRoot, "docs/save-outcome-notes.md");
+      const assetPath = join(packageRoot, "assets/save-outcome.svg");
+      const originalAsset = await readFile(assetPath);
+      await writeFile(notePath, "A watched text update is published atomically.\n");
+      const firstPublish = await publishPackage({ packageRoot });
+
+      expect(firstPublish.published).toBe(true);
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null };
+        return state.currentRevision === 2;
+      });
+      const afterText = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; lastAttempt: string };
+      expect(afterText.currentRevision).toBe(2);
+      expect(afterText.currentCandidateId).not.toBe(before.currentCandidateId);
+      expect(afterText.lastAttempt).toBe("published");
+
+      await writeFile(notePath, "An interrupted multi-file save is not yet coherent.\n");
+      await writeFile(assetPath, "not an svg yet\n");
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; diagnostics: Array<{ code: string }>; lastAttempt: string };
+        return state.lastAttempt === "rejected" && state.currentRevision === 2 && state.diagnostics.some((diagnostic) => diagnostic.code === "digest-mismatch");
+      });
+      const rejected = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; diagnostics: Array<{ code: string }> };
+      expect(rejected.currentCandidateId).toBe(afterText.currentCandidateId);
+      expect(rejected.currentRevision).toBe(2);
+      const retained = runtime.store.getCurrentCandidate();
+      expect(retained?.getFileBytes("file.save-outcome-notes")).toEqual(new TextEncoder().encode("A watched text update is published atomically.\n"));
+
+      await writeFile(assetPath, originalAsset);
+      const secondPublish = await publishPackage({ packageRoot });
+      expect(secondPublish.published).toBe(true);
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null };
+        return state.currentRevision === 3;
+      });
+      const recovered = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; lastAttempt: string };
+      expect(recovered.currentRevision).toBe(3);
+      expect(recovered.currentCandidateId).not.toBe(rejected.currentCandidateId);
+      expect(recovered.lastAttempt).toBe("published");
+      const assetResponse = await fetch(`http://${runtime.host}:${runtime.port}/api/candidates/${recovered.currentCandidateId}/assets/asset.save-outcome-diagram`);
+      expect(new Uint8Array(await assetResponse.arrayBuffer())).toEqual(new Uint8Array(originalAsset));
+    } finally {
+      await runtime.close();
+    }
+  });
+
+  it("serves initial invalid packages once they become valid without restarting", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-invalid-watch-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const manifestPath = join(packageRoot, "plan.json");
+    const originalManifest = await readFile(manifestPath);
+    await writeFile(manifestPath, "{\n");
+    const runtime = await startRuntime({ packageRoot, port: 0, watchDebounceMs: 30 });
+
+    try {
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; diagnostics: Array<{ code: string }>; lastAttempt: string };
+        return state.currentCandidateId === null && state.lastAttempt === "rejected" && state.diagnostics.some((diagnostic) => diagnostic.code === "malformed-json");
+      });
+      await writeFile(manifestPath, originalManifest);
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; lastAttempt: string };
+        return state.currentCandidateId !== null && state.lastAttempt === "published";
+      });
+      const recovered = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null };
+      expect(recovered.currentCandidateId).not.toBeNull();
+      expect(recovered.currentRevision).toBe(1);
+    } finally {
+      await runtime.close();
+    }
+  });
+
+  it("rediscovers and watches a dependency introduced by a valid manifest", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-new-dependency-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const dependencyPath = join(packageRoot, "new-dependencies/nested/notes.md");
+    await mkdir(join(packageRoot, "new-dependencies/nested"), { recursive: true });
+    await writeFile(dependencyPath, "The newly declared dependency.\n");
+    const manifestPath = join(packageRoot, "plan.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+      files: Array<{ id: string; root: string; path: string; sha256: string; required: boolean }>;
+    };
+    manifest.files.push({ id: "file.new-dependency", root: "package", path: "new-dependencies/nested/notes.md", sha256: "0".repeat(64), required: true });
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const runtime = await startRuntime({ packageRoot, port: 0, watchDebounceMs: 30 });
+
+    try {
+      const published = await publishPackage({ packageRoot });
+      expect(published.published).toBe(true);
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null };
+        return state.currentRevision === 2;
+      });
+
+      await writeFile(dependencyPath, "The dependency changed after it was discovered.\n");
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null; lastAttempt: string; diagnostics: Array<{ code: string }> };
+        return state.currentRevision === 2 && state.lastAttempt === "rejected" && state.diagnostics.some((diagnostic) => diagnostic.code === "digest-mismatch");
+      });
+      await publishPackage({ packageRoot });
+      await waitFor(async () => {
+        const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null; lastAttempt: string };
+        return state.currentRevision === 3 && state.lastAttempt === "published";
+      });
+    } finally {
+      await runtime.close();
+    }
+  });
+
+  it("streams initial, published, and rejected runtime state events", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-events-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const runtime = await startRuntime({ packageRoot, port: 0, watch: false });
+    const eventResponse = await fetch(`http://${runtime.host}:${runtime.port}/api/events`);
+    const reader = eventResponse.body?.getReader();
+    if (!reader) throw new Error("Runtime event stream has no body.");
+    const buffer: SseBuffer = { value: "" };
+
+    try {
+      expect(eventResponse.headers.get("content-type")).toContain("text/event-stream");
+      const initial = await readSseEvent(reader, buffer, "state") as { currentRevision: number; lastAttempt: string };
+      expect(initial.currentRevision).toBe(1);
+      expect(initial.lastAttempt).toBe("published");
+
+      await writeFile(join(packageRoot, "docs/save-outcome-notes.md"), "stale bytes before publication\n");
+      const rejectedResponse = await fetch(`http://${runtime.host}:${runtime.port}/api/reload`, { method: "POST" });
+      expect(rejectedResponse.status).toBe(200);
+      const rejected = await readSseEvent(reader, buffer, "candidate-rejected") as { currentRevision: number; lastAttempt: string; diagnostics: Array<{ code: string }> };
+      expect(rejected.currentRevision).toBe(1);
+      expect(rejected.lastAttempt).toBe("rejected");
+      expect(rejected.diagnostics.map((diagnostic) => diagnostic.code)).toContain("digest-mismatch");
+
+      await reader.cancel();
     } finally {
       await runtime.close();
     }

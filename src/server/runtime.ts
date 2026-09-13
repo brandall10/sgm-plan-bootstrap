@@ -4,7 +4,8 @@ import { createServer as createViteServer, type ViteDevServer } from "vite";
 
 import type { Diagnostic } from "../core/diagnostics.js";
 import type { CandidateLoadOptions } from "./candidate-loader.js";
-import { CandidateStore, type RuntimeAssetResponse, type RuntimeFileResponse } from "./candidate-store.js";
+import { CandidateStore, type RuntimeAssetResponse, type RuntimeChange, type RuntimeFileResponse } from "./candidate-store.js";
+import { PackageWatcher } from "./package-watcher.js";
 
 export interface RuntimeOptions extends CandidateLoadOptions {
   host?: string;
@@ -13,6 +14,10 @@ export interface RuntimeOptions extends CandidateLoadOptions {
   serveViewer?: boolean;
   /** Project root used by Vite when the review surface is enabled. */
   viewerRoot?: string;
+  /** Watch package inputs and publish valid changes automatically (default true). */
+  watch?: boolean;
+  /** Debounce interval for filesystem events. */
+  watchDebounceMs?: number;
 }
 
 export interface RunningRuntime {
@@ -85,6 +90,61 @@ function isRuntimeAssetResponse(resource: RuntimeAssetResponse | RuntimeFileResp
   return "asset" in resource;
 }
 
+type EventClient = {
+  response: ServerResponse;
+  heartbeat: ReturnType<typeof setInterval>;
+};
+
+function writeEvent(response: ServerResponse, event: string, value: unknown): void {
+  if (response.writableEnded || response.destroyed) return;
+  response.write(`event: ${event}\ndata: ${JSON.stringify(value)}\n\n`);
+}
+
+function removeEventClient(client: EventClient, clients: Set<EventClient>): void {
+  clearInterval(client.heartbeat);
+  clients.delete(client);
+}
+
+function broadcastEvent(clients: Set<EventClient>, change: RuntimeChange): void {
+  for (const client of clients) {
+    if (client.response.writableEnded || client.response.destroyed) {
+      removeEventClient(client, clients);
+      continue;
+    }
+    try {
+      writeEvent(client.response, change.kind, change.state);
+    } catch {
+      removeEventClient(client, clients);
+    }
+  }
+}
+
+function openEventStream(request: IncomingMessage, response: ServerResponse, store: CandidateStore, clients: Set<EventClient>): void {
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-store",
+    connection: "keep-alive",
+    "x-accel-buffering": "no",
+  });
+  response.flushHeaders();
+  const client: EventClient = {
+    response,
+    heartbeat: setInterval(() => {
+      if (response.writableEnded || response.destroyed) {
+        removeEventClient(client, clients);
+        return;
+      }
+      response.write(": keep-alive\n\n");
+    }, 15_000),
+  };
+  clients.add(client);
+  const close = (): void => removeEventClient(client, clients);
+  request.once("close", close);
+  response.once("close", close);
+  response.write("retry: 1000\n\n");
+  writeEvent(response, "state", store.getState());
+}
+
 /** Returns true only when the request was consumed by the runtime API. */
 async function handleRequest(
   request: IncomingMessage,
@@ -92,9 +152,18 @@ async function handleRequest(
   store: CandidateStore,
   viewerOrigin: string,
   reloadOptions: CandidateLoadOptions,
+  eventClients: Set<EventClient>,
 ): Promise<boolean> {
   const url = requestUrl(request);
   if (!url.pathname.startsWith("/api/")) return false;
+  if (url.pathname === "/api/events") {
+    if (request.method !== "GET") {
+      writeJson(response, 405, { diagnostics: [{ code: "method-not-allowed", message: "Use GET to subscribe to package runtime events.", path: "$", severity: "error" satisfies Diagnostic["severity"] }] });
+      return true;
+    }
+    openEventStream(request, response, store, eventClients);
+    return true;
+  }
   if (url.pathname === "/api/reload") {
     if (request.method !== "POST") {
       writeJson(response, 405, { diagnostics: [{ code: "method-not-allowed", message: "Use POST to revalidate the selected package.", path: "$", severity: "error" }] });
@@ -183,12 +252,15 @@ export async function startRuntime(options: RuntimeOptions): Promise<RunningRunt
   const port = options.port ?? 4173;
   const store = new CandidateStore();
   await store.loadAndPublish(options);
+  const eventClients = new Set<EventClient>();
+  const unsubscribe = store.subscribe((change) => broadcastEvent(eventClients, change));
   let vite: ViteDevServer | undefined;
+  let watcher: PackageWatcher | undefined;
   let viewerOrigin = `http://${host}`;
   const server = createServer((request, response) => {
     void (async () => {
       try {
-        if (await handleRequest(request, response, store, viewerOrigin, options)) return;
+        if (await handleRequest(request, response, store, viewerOrigin, options, eventClients)) return;
         const viewer = vite;
         if (viewer) {
           viewer.middlewares(request, response, (error?: Error) => {
@@ -233,6 +305,14 @@ export async function startRuntime(options: RuntimeOptions): Promise<RunningRunt
   });
   const address = server.address();
   const actualPort = typeof address === "object" && address ? address.port : port;
+  if (options.watch !== false) {
+    watcher = new PackageWatcher({
+      store,
+      loadOptions: options,
+      debounceMs: options.watchDebounceMs,
+    });
+    await watcher.start();
+  }
   viewerOrigin = `http://${host}:${actualPort}`;
   return {
     host,
@@ -240,8 +320,18 @@ export async function startRuntime(options: RuntimeOptions): Promise<RunningRunt
     store,
     server,
     close: async () => {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await watcher?.close();
+      unsubscribe();
+      for (const client of eventClients) {
+        removeEventClient(client, eventClients);
+        client.response.destroy();
+      }
+      // Vite owns the HMR upgrade attached to this server. Close it before
+      // waiting for the HTTP server, otherwise an open browser tab can keep
+      // server.close() pending indefinitely during test/runtime teardown.
       await vite?.close();
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     },
   };
 }

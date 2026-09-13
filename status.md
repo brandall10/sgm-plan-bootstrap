@@ -4,7 +4,7 @@ Source plan: [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-
 
 Results: [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md)
 
-State: W01 P1 and P2 are integrated in `main`; P2's browser viewer and native annotation/edit/reload loop are implemented and locally verified, with [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged. P3 remains unstarted.
+State: W01 P1 and P2 are integrated in `main`; P3 is implemented and locally verified on `feat/package-viewer-phase-p3-live-refresh`, with its scoped PR delivery pending.
 
 ## P1 — Package core and coherent initial loading
 
@@ -22,10 +22,10 @@ State: W01 P1 and P2 are integrated in `main`; P2's browser viewer and native an
 
 ## P3 — Live refresh, recovery, and measured behavior
 
-- [ ] P3-T1 — Watch declared package inputs and generation-fence candidate publication.
-- [ ] P3-T2 — Expose accepted/rejected candidates, reconnect state, and navigation-preserving recovery.
-- [ ] P3-T3 — Exercise valid, interrupted, invalid, overlapping, deletion, and disconnect/reconnect updates.
-- [ ] P3-T4 — Measure opening/load/render/refresh behavior and finish usage/troubleshooting documentation.
+- [x] P3-T1 — Watch declared package inputs and generation-fence candidate publication.
+- [x] P3-T2 — Expose accepted/rejected candidates, reconnect state, and navigation-preserving recovery.
+- [x] P3-T3 — Exercise valid, interrupted, invalid, overlapping, deletion, and disconnect/reconnect updates.
+- [x] P3-T4 — Measure opening/load/render/refresh behavior and finish usage/troubleshooting documentation.
 
 ## P1 delivery note
 
@@ -42,4 +42,12 @@ State: W01 P1 and P2 are integrated in `main`; P2's browser viewer and native an
 - Review/merge: [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged into `main`.
 - Integration: observed at merge commit `fbddbeef1f3ca293c59366f217df61f97a8e9276`; P2 is complete.
 
-Current next action: P2 is closed out; P3 is now eligible for a separately selected phase, but remains unstarted.
+## P3 delivery note
+
+- Implementation: complete and locally verified on `feat/package-viewer-phase-p3-live-refresh`; the implementation revision is recorded in the linked results ledger after the phase commit.
+- Verification: `npm run typecheck`, `npm run lint`, `npm test` (25 tests), `npm run test:e2e` (8 Chrome checks), `npm run build`, `npm run measure` (five runs per measurement), and `git diff --check` passed. Loopback-dependent checks used the approved local execution path.
+- Results: the runtime watches the manifest, declared files, and necessary parent directories; generation-fences overlapping loads; emits published/rejected SSE state; retains the last valid candidate and diagnostics; and the viewer recovers live connections and removed-item navigation. See [P3 results](docs/plans/2026-09-12-01-package-viewer/results.md#p3).
+- Review/merge: pending scoped PR delivery; no merge has been observed.
+- Integration: not yet observed on `main`.
+
+Current next action: record the phase commit revision, push `feat/package-viewer-phase-p3-live-refresh`, and open/update its PR. Do not start another W01 phase until this PR is reviewed and integrated.
