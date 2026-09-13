@@ -4,7 +4,7 @@ Source plan: [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-
 
 Results: [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md)
 
-State: P1 is integrated in `main`; P2 is implemented and locally verified on its dedicated branch, with PR delivery pending; P3 remains unstarted.
+State: P1 is integrated in `main`; P2 is implemented, locally verified, and delivered as [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2), with review/merge pending; P3 remains unstarted.
 
 ## P1 — Package core and coherent initial loading
 
@@ -39,7 +39,7 @@ State: P1 is integrated in `main`; P2 is implemented and locally verified on its
 - Implementation: complete in `9e3dc24d59ca5d5c4f38578031e02049323967e9` on `feat/package-viewer-phase-p2-viewer`.
 - Verification: `npm run typecheck`, `npm run lint`, `npm test` (20 tests), `npm run test:e2e` (5 browser checks), `npm run build`, and `git diff --check` passed.
 - Native host probe: [unavailable/unverified, not successful](docs/native-surface-probe.md); no custom feedback transport was added.
-- Review/merge: P2 PR is pending creation.
+- Review/merge: [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) is open; awaiting review/merge.
 - Integration: not yet merged into `main`.
 
-Current blocker / next action: deliver P2's scoped PR and wait for its review/merge before selecting P3.
+Current blocker / next action: wait for P2's [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) review/merge before selecting P3.
