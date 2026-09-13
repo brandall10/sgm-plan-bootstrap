@@ -1,9 +1,9 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-12
-**Current state:** W01 P1 implementation is committed and locally verified; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open and integration is pending.
-**Recommended next work:** Review/merge PR #1, then begin P2 only after P1 is integrated.
-**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; P1 implemented/verified, PR #1 open).
+**Current state:** W01 P1 implementation is committed, locally verified, and integrated in `main` via [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1); P2/P3 remain unstarted.
+**Recommended next work:** If W01 resumes, begin P2 through `status-next`; this merge-only request is complete.
+**Active implementation plan:** [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-12-01-package-viewer/plan.md) (accepted and active; P1 integrated, P2–P3 not started).
 
 ## Goal and observed baseline
 
@@ -88,4 +88,4 @@ Broader SGM comprehension and change-analysis goals remain relevant, but this ro
 - Added a confined Node runtime and immutable candidate store serving captured model/file/asset bytes, plus two data-driven illustrative fixtures: the complete two-phase offline-recovery package and an independently worded one-phase save-outcome package. Added format, boundary, publication, launch, and troubleshooting guidance in the repository docs.
 - Verification passed: `npm run typecheck`, `npm run lint`, `npm test` (3 files, 16 tests, including loopback HTTP endpoints), `npm run build`, and `git diff --cached --check`. Runtime tests required loopback permission in the managed sandbox but passed in the approved local run.
 - Material boundary: P1 does not include the reusable viewer, live watching/recovery, browser checks, native presentation probe, or performance measurements; those remain P2/P3 obligations. The offline fixture's optional external reference is intentionally not fetched and is surfaced as a warning.
-- Delivery state: implementation and local verification complete; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open against `main`; merge/integration is not observed. Next action is review/merge, then P2.
+- Delivery state: implementation and local verification complete; [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P1 is integrated; P2 remains the next unstarted phase.

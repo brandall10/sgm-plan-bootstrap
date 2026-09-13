@@ -4,7 +4,7 @@ Source plan: [W01 — Open and refresh a saved Plan Package](docs/plans/2026-09-
 
 Results: [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md)
 
-State: P1 implemented and verified locally; PR #1 is open and review/merge pending.
+State: P1 implemented, verified, and integrated in `main`; P2/P3 remain unstarted.
 
 ## P1 — Package core and coherent initial loading
 
@@ -31,7 +31,7 @@ State: P1 implemented and verified locally; PR #1 is open and review/merge pendi
 
 - Implementation: complete in `771070ecee3c6e1665bdf9a69ecadd18095aaa95`.
 - Verification: typecheck, lint, build, and 16 unit/HTTP acceptance tests passed; see the linked results ledger.
-- Review/merge: [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) is open against `main`; merge is not authorized or observed.
-- Integration: not observed; P2 remains gated on P1 integration.
+- Review/merge: [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main`.
+- Integration: observed at merge commit `826a228423ae5b49b7b503b56295dfe4def3bdfd`; P1 is complete.
 
-Current blocker / next action: Await review/merge of [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1); do not begin P2 until P1 is reviewed and merged.
+Current blocker / next action: W01 P1 is closed out. If work resumes, select P2 through `status-next`; do not start it as part of this merge-only request.
