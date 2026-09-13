@@ -45,7 +45,7 @@ The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 
 
 ### Verification and outcomes
 
-- Validation covered the accepted plan at `ee7a0c339cc4b4265f738add0427e675484e3567` and `main` base `2978e011883eb344a53b6e80788e4432567309c0`. The implementation revision is recorded in the follow-up ledger update after this phase commit.
+- Validation covered the accepted plan at `ee7a0c339cc4b4265f738add0427e675484e3567`, `main` base `2978e011883eb344a53b6e80788e4432567309c0`, and implementation revision `9e3dc24d59ca5d5c4f38578031e02049323967e9`.
 - `npm run typecheck` — passed.
 - `npm run lint` — passed.
 - `npm test` — passed: 4 test files, 20 tests. Includes the existing package/runtime checks plus safe-link handling, candidate-scoped prototype route/CSP/traversal checks, and manual valid-candidate reload. Local HTTP tests used approved loopback access.
@@ -61,7 +61,7 @@ The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 
 
 ### Delivery ledger
 
-- Implementation: complete and locally verified on `feat/package-viewer-phase-p2-viewer`; the feature commit is recorded by the next ledger update.
+- Implementation: complete and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9` on `feat/package-viewer-phase-p2-viewer`.
 - Review/merge: scoped P2 PR pending creation.
 - Integration: not merged; P3 cannot begin until P2 is integrated.
 

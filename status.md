@@ -36,7 +36,7 @@ State: P1 is integrated in `main`; P2 is implemented and locally verified on its
 
 ## P2 delivery note
 
-- Implementation: complete in this phase's feature commit on `feat/package-viewer-phase-p2-viewer`; its revision is recorded in the linked results ledger after the commit.
+- Implementation: complete in `9e3dc24d59ca5d5c4f38578031e02049323967e9` on `feat/package-viewer-phase-p2-viewer`.
 - Verification: `npm run typecheck`, `npm run lint`, `npm test` (20 tests), `npm run test:e2e` (5 browser checks), `npm run build`, and `git diff --check` passed.
 - Native host probe: [unavailable/unverified, not successful](docs/native-surface-probe.md); no custom feedback transport was added.
 - Review/merge: P2 PR is pending creation.
