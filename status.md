@@ -18,7 +18,7 @@ Next action: push the scoped branch and open the W02 P1 PR, then reconcile revie
 ## P1 delivery note
 
 - Implementation and required local verification passed in `7a1dd15de47920ddd811296e88b14508d8c4463b`, based on accepted plan/main `2411338f9f288fc31be67f9eb63d57ff21567220`.
-- Review/merge: pending scoped PR delivery; no remote PR or merge has been claimed.
+- Review/merge: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) is open at head `c8efa27dc28c946a4660505e1736c69d1ee2f83e`; review/merge is pending.
 - Integration: not yet merged into local or remote `main`.
 
 ## P2 — Reopen and compare accepted proposals

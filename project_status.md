@@ -1,8 +1,8 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-13
-**Current state:** W01 P1, P2, and P3 are integrated in `main` via [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1), [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2), and [PR #3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3). P3 integrated at merge commit `3e7b60daec2a5222c22deaf1cb5310b13fdcc27a`; W01 is complete. W02 P1 is implemented and locally verified on its scoped branch; review/merge is pending.
-**Recommended next work:** push and open the scoped W02 P1 PR, then reconcile review/merge state before beginning P2.
+**Current state:** W01 P1, P2, and P3 are integrated in `main` via [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1), [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2), and [PR #3](https://github.com/brandall10/sgm-plan-bootstrap/pull/3). P3 integrated at merge commit `3e7b60daec2a5222c22deaf1cb5310b13fdcc27a`; W01 is complete. W02 P1 is implemented and locally verified; [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) is open and review/merge is pending.
+**Recommended next work:** reconcile review/merge for [W02 P1 PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4); do not begin P2 until P1 is integrated.
 **Active implementation plan:** [W02 — Refine, accept, and reopen the same proposal](docs/plans/2026-09-13-01-proposal-acceptance/plan.md) (accepted and committed; P1 checklist/results are current in [status.md](status.md) and [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)).
 
 ## Goal and observed baseline
@@ -132,4 +132,4 @@ Broader SGM comprehension and change-analysis goals remain relevant, but this ro
 - The runtime now persists exact manifest bytes and resolved package/repository/selected-asset dependency bytes in an atomic, content-addressed `.plan-package` store before publishing a candidate. Descriptors and blobs are integrity-checked on reopen; optional omissions remain explicit; corrupt or failed writes do not replace the prior candidate.
 - Added explicit acceptance records and `npm run accept -- ...` with required snapshot/provenance/instruction inputs, idempotent retries, conflict rejection, read-only runtime history, and unverified legacy manifest-state handling. Blocking questions remain visible planning blockers rather than integrity rejection.
 - Verification passed: `npm run typecheck`, `npm run lint`, `npm test` (36 tests), `npm run test:e2e` (8 Chrome checks), `npm run build`, and `git diff --check`.
-- Delivery state: implementation and local verification complete; scoped PR not yet opened; remote merge and local integration remain pending. Next action: push the branch and open the W02 P1 PR.
+- Delivery state: implementation and local verification complete; [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) is open at head `c8efa27dc28c946a4660505e1736c69d1ee2f83e`; remote merge and local integration remain pending. Next action: review/merge PR #4, then verify integration.

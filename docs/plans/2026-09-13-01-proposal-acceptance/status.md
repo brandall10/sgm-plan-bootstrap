@@ -17,7 +17,7 @@ Next action: push the scoped branch and open the W02 P1 PR. The active execution
 
 ## P1 delivery note
 
-Implementation/verification are complete in `7a1dd15de47920ddd811296e88b14508d8c4463b`; review, merge, and integration remain pending.
+Implementation/verification are complete in `7a1dd15de47920ddd811296e88b14508d8c4463b`; [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) is open at `c8efa27dc28c946a4660505e1736c69d1ee2f83e`; review, merge, and integration remain pending.
 
 ## P2 — Reopen and compare accepted proposals
 

@@ -35,7 +35,7 @@ Next action: push `feat/proposal-acceptance-phase-p1-snapshots` and open its PR 
 ### Delivery
 
 - Implementation: complete and verified locally.
-- Review/merge: pending; no PR URL yet.
+- Review/merge: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) is open against `main` at head `c8efa27dc28c946a4660505e1736c69d1ee2f83e`; review/merge is pending.
 - Integration: not merged into `main`.
 
 ## P2
