@@ -44,7 +44,7 @@ State: W01 P1 and P2 are integrated in `main`; P3 is implemented and locally ver
 
 ## P3 delivery note
 
-- Implementation: complete and locally verified on `feat/package-viewer-phase-p3-live-refresh`; the implementation revision is recorded in the linked results ledger after the phase commit.
+- Implementation: complete in `d34c1af836147047e54f5b7ab5f582f9d3796dfd` on `feat/package-viewer-phase-p3-live-refresh`; the implementation revision is verified against `main` base `0a81fb09e4f1426b557d55ede786c8609cfaf73a` and the accepted plan revision.
 - Verification: `npm run typecheck`, `npm run lint`, `npm test` (25 tests), `npm run test:e2e` (8 Chrome checks), `npm run build`, `npm run measure` (five runs per measurement), and `git diff --check` passed. Loopback-dependent checks used the approved local execution path.
 - Results: the runtime watches the manifest, declared files, and necessary parent directories; generation-fences overlapping loads; emits published/rejected SSE state; retains the last valid candidate and diagnostics; and the viewer recovers live connections and removed-item navigation. See [P3 results](docs/plans/2026-09-12-01-package-viewer/results.md#p3).
 - Review/merge: pending scoped PR delivery; no merge has been observed.

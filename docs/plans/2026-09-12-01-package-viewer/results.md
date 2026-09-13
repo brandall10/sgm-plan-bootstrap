@@ -2,7 +2,7 @@
 
 Source plan: [W01 — Open and refresh a saved Plan Package](plan.md)
 
-The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 was implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at that accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P2's browser viewer was implemented and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9`; the native Browser annotation receipt/edit/reload loop is now also verified. [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged into `main` at `fbddbeef1f3ca293c59366f217df61f97a8e9276`. P3 is implemented and locally verified on `feat/package-viewer-phase-p3-live-refresh`; its implementation revision and PR delivery are pending the phase commit.
+The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 was implemented and locally verified in code revision `771070ecee3c6e1665bdf9a69ecadd18095aaa95`, based on `main` at that accepted revision. [PR #1](https://github.com/brandall10/sgm-plan-bootstrap/pull/1) merged into `main` at `826a228423ae5b49b7b503b56295dfe4def3bdfd`. P2's browser viewer was implemented and locally verified in `9e3dc24d59ca5d5c4f38578031e02049323967e9`; the native Browser annotation receipt/edit/reload loop is now also verified. [PR #2](https://github.com/brandall10/sgm-plan-bootstrap/pull/2) merged into `main` at `fbddbeef1f3ca293c59366f217df61f97a8e9276`. P3 is implemented and locally verified in `d34c1af836147047e54f5b7ab5f582f9d3796dfd` on `feat/package-viewer-phase-p3-live-refresh`; PR delivery is pending.
 
 ## P1
 
@@ -94,7 +94,7 @@ The plan is accepted at revision `ee7a0c339cc4b4265f738add0427e675484e3567`. P1 
 
 ### Delivery ledger
 
-- Implementation: complete and verified locally on `feat/package-viewer-phase-p3-live-refresh`; implementation commit and PR URL are recorded in the follow-up ledger update after commit/remote delivery.
+- Implementation: complete and verified locally in `d34c1af836147047e54f5b7ab5f582f9d3796dfd` on `feat/package-viewer-phase-p3-live-refresh`, based on `main` `0a81fb09e4f1426b557d55ede786c8609cfaf73a` and accepted plan revision `ee7a0c339cc4b4265f738add0427e675484e3567`.
 - Review/merge: pending; no PR has been opened yet.
 - Integration: not observed on `main`.
 - Next action: commit the verified phase, push the scoped branch, and open its PR against `main`; keep W01 closed to further phase selection until that PR is integrated.
