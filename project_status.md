@@ -19,14 +19,6 @@
 
 Roadmap rows are candidates, not automatic commitments or execution phases.
 
-## Record ownership
-
-- `project_status.md` is a compact roadmap and memory index. Keep current state, priorities, links, and only short durable decisions here.
-- Roadmap rows retain each candidate's outcome, scope/prerequisites, relevant specification links, and state. Remove historical execution detail, not the context needed to choose future work.
-- Root `status.md` is the single checklist for the current plan. Every plan’s checklist is represented there; never create a plan-local `status.md`.
-- Each plan directory contains `plan.md` and, when needed, `results.md`. Detailed implementation outcomes, validation, decisions, and delivery history belong in `results.md`.
-- `docs/specs/` is read-only design input. Planning or selecting work does not authorize implementation; accepted plans run through `status-next`.
-
 ## Durable decisions
 
 - Preserve the accepted plan and its exact scope; changed obligations require a new proposal.

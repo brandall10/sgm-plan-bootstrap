@@ -25,8 +25,9 @@ Read them in that order for the complete design. During focused work, follow the
 
 | File or artifact | Responsibility while building this experiment |
 | --- | --- |
+| `AGENTS.md` | Repository-specific agent workflow and document-ownership rules |
 | `docs/specs/` | Read-only design inputs: intended behavior, constraints, examples, and verification expectations |
-| `project_status.md` | Compact durable index: roadmap outcomes/scope, current priorities, active plan links, short decisions/blockers, and links to results; target roughly 500 words or fewer |
+| `project_status.md` | Compact durable index: roadmap outcomes/scope, current priorities, active plan links, short decisions/blockers, and links to results |
 | Root `status.md` | The single active checklist for the current plan: source plan pointer, phase tasks, blockers, and next action |
 | Accepted implementation plan | Detailed approach and instructions for the selected scope |
 | Code, test output, screenshots, and other evidence | Supporting artifacts linked from the memory files; they do not create another work queue |
@@ -35,7 +36,7 @@ Do not write completion marks, run results, implementation notes, roadmap IDs, o
 
 The specs describe richer plan/execution records that the product may eventually maintain. Those future structures do not replace these two memory files during this experiment.
 
-Root status.md and project_status.md belong in version control and must not be ignored. Before resetting it, move only concise consequential decisions, blockers, and links into project_status.md; move detailed findings and evidence to the plan's results.md. Keep project_status.md roughly under 500 words/100 lines; compress or move detail to results.md before it grows beyond that budget. Root status.md is the one active execution checklist, and every plan's checklist uses that root location. Plan directories contain plan.md and, when needed, results.md, but must not contain another status.md. Keep plans and specs free of duplicate progress checklists. Do not create status.md merely because a work item was selected for planning; reconcile the root checklist when the selected plan changes.
+Repository-specific agent rules live in [AGENTS.md](AGENTS.md). In short: root `status.md` is the one active checklist, every plan's checklist uses that root location, plan directories contain `plan.md` and optional `results.md`, and `project_status.md` stays a compact roadmap rather than an execution journal.
 
 ## Planning and execution conventions
 
