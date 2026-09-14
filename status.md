@@ -4,9 +4,9 @@ Source plan: [W02 plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md)
 
 Results: [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)
 
-State: W02 P1 and P2 are integrated in `main`; P3 implementation and required verification are complete, with PR #7 approved and merge pending.
+State: W02 P1, P2, and P3 are integrated in `main`; W02 is complete.
 
-Next action: merge and integrate [W02 P3 PR #7](https://github.com/brandall10/sgm-plan-bootstrap/pull/7). W01 is complete; its outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
+Next action: W02 is complete; no new phase is selected. W01's outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
 
 ## P1 — Durable snapshots and explicit acceptance
 
@@ -46,4 +46,4 @@ Next action: merge and integrate [W02 P3 PR #7](https://github.com/brandall10/sg
 - Native receipt and refinement outcome: the illustrative accepted snapshot remains separate from the refined draft.
 - Validation: `npm run typecheck`, `npm run lint`, `npm test` (43 passed), `npm run test:e2e` (9 passed), `npm run build`, `npm run measure`, and `git diff --check` passed.
 - Stale-target handling uses explicit automated simulation; it is recorded separately from the actual native Browser comment and does not claim a second host annotation.
-- Review: [PR #7](https://github.com/brandall10/sgm-plan-bootstrap/pull/7) is approved after checking W02 P3 against base `caee8f8` and implementation `ef8328e`; merge is pending.
+- Review/integration: [PR #7](https://github.com/brandall10/sgm-plan-bootstrap/pull/7) was approved after checking W02 P3 against base `caee8f8` and implementation `ef8328e`; it merged into `main` at `f798bd7`, with local and remote `main` synchronized.
