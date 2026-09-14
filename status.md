@@ -1,49 +1,36 @@
-# W02 — Refine, accept, and reopen the same proposal
+# W03 — Retrieve phase context and predecessor results
 
-Source plan: [W02 plan](docs/plans/2026-09-13-01-proposal-acceptance/plan.md)
+Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
-Results: [W02 results](docs/plans/2026-09-13-01-proposal-acceptance/results.md)
+Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W02 P1, P2, and P3 are integrated in `main`; W02 is complete.
+State: W03 is accepted and active; execution has not started.
 
-Next action: W02 is complete; no new phase is selected. W01's outcomes remain in [W01 results](docs/plans/2026-09-12-01-package-viewer/results.md) and [project status](project_status.md).
+Next action: Run `status-next` for W03 P1 — Model declared obligations and deterministic selections.
 
-## P1 — Durable snapshots and explicit acceptance
+## P1 — Model declared obligations and deterministic selections
 
-- [x] P1-T1 — Define snapshot/acceptance contracts and separate integrity, acceptance, and planning blockers.
-- [x] P1-T2 — Implement confined durable capture, atomic publication, and verified reopening.
-- [x] P1-T3 — Implement explicit acceptance recording, provenance, retries, and history reading.
-- [x] P1-T4 — Verify storage/CLI/runtime behavior and document usage and recovery.
+- [ ] P1-T1 — Extend the package contract with versioned tasks, criterion applicability, capability validation, and compatibility diagnostics.
+- [ ] P1-T2 — Add a pure deterministic context-selection model with governing/expandable material and readiness blockers.
+- [ ] P1-T3 — Verify consumer obligations, activity filtering, questions, invalid relationships, and v1 compatibility.
 
-## P1 delivery note
+## P2 — Retain phase outcomes independently of proposal bytes
 
-- Implementation and required local verification passed in `7a1dd15de47920ddd811296e88b14508d8c4463b`, based on accepted plan/main `2411338f9f288fc31be67f9eb63d57ff21567220`.
-- Review/merge: [PR #4](https://github.com/brandall10/sgm-plan-bootstrap/pull/4) merged into `main` at `864099f8a8772d5126df5fb3b1a593f5e3158d32`.
-- Integration: verified in local and remote `main` at `864099f8a8772d5126df5fb3b1a593f5e3158d32`; P1 is integrated.
+- [ ] P2-T1 — Define and validate versioned, attributable result records and statement dispositions.
+- [ ] P2-T2 — Add atomic, verified result storage with idempotency, conflict, retention, and corruption behavior.
+- [ ] P2-T3 — Provide explicit result recording and read-only runtime/history projections.
+- [ ] P2-T4 — Verify retained results across restart, invalid records, mismatches, stale evidence, and illustrative fixtures.
 
-## P2 — Reopen and compare accepted proposals
+## P3 — Deliver attributable CLI context and expansion
 
-- [x] P2-T1 — Add snapshot/history APIs and shared stable-ID/content comparison.
-- [x] P2-T2 — Implement pinned routes, selection, provenance, and safe retained assets.
-- [x] P2-T3 — Present linked material changes with accessible navigation.
-- [x] P2-T4 — Verify both fixtures, restart/refresh, comparison, and integrity failures.
+- [ ] P3-T1 — Implement strict local command parsing, snapshot/phase/activity selection, Markdown output, and provenance.
+- [ ] P3-T2 — Implement accepted `current` and readiness-aware `context` operations without draft fallback.
+- [ ] P3-T3 — Implement same-snapshot expansion, retained asset inspection, and explicit over-budget output.
+- [ ] P3-T4 — Verify CLI behavior for acceptance state, pinned history, errors, budget, expansion, and isolation.
 
-## P2 delivery note
+## P4 — Demonstrate fresh recovery and inspectable product results
 
-- Implementation: `fd6eee9` adds history/snapshot/draft APIs, content comparison, concrete viewer routes, provenance, pinned assets, and regression coverage.
-- Validation: `npm run typecheck`, `npm run lint`, `npm test` (42 passed), `npm run test:e2e` (9 passed), `npm run build`, and `git diff --check` passed.
-- Review: [PR #6](https://github.com/brandall10/sgm-plan-bootstrap/pull/6) was approved after checking W02 P2 against base `cfbadf5` and implementation `fd6eee9`.
-- Integration: merged and verified in local and remote `main` at `650fd12`; P3 began after its real native-annotation prerequisite was received.
-
-## P3 — Demonstrate the complete review/refinement loop
-
-- [x] P3-T1 — Demonstrate illustrative acceptance, later edits, and exact reopening.
-- [x] P3-T2 — Receive and resolve real native feedback with explicit stale-target handling.
-- [x] P3-T3 — Complete documentation, independent verification, and reopen/comparison measurements.
-
-## P3 delivery note
-
-- Native receipt and refinement outcome: the illustrative accepted snapshot remains separate from the refined draft.
-- Validation: `npm run typecheck`, `npm run lint`, `npm test` (43 passed), `npm run test:e2e` (9 passed), `npm run build`, `npm run measure`, and `git diff --check` passed.
-- Stale-target handling uses explicit automated simulation; it is recorded separately from the actual native Browser comment and does not claim a second host annotation.
-- Review/integration: [PR #7](https://github.com/brandall10/sgm-plan-bootstrap/pull/7) was approved after checking W02 P3 against base `caee8f8` and implementation `ef8328e`; it merged into `main` at `f798bd7`, with local and remote `main` synchronized.
+- [ ] P4-T1 — Add accessible viewer result panels from the read-only runtime projection.
+- [ ] P4-T2 — Demonstrate fresh context/result recovery and viewer/CLI agreement with clearly labelled fixtures.
+- [ ] P4-T3 — Document operations and measure matched full versus selected context.
+- [ ] P4-T4 — Independently verify selection, stale evidence, unavailable inputs, and graph-free references.
