@@ -2,7 +2,7 @@
   "format": "plan-package",
   "format_version": "1.0",
   "id": "offline-recovery",
-  "revision": 2,
+  "revision": 3,
   "title": "Make offline exercise recovery explicit",
   "goal_md": "Give a learner an honest way to restore or discard offline progress while preserving the last known good state.",
   "scope": {
@@ -76,7 +76,7 @@
         },
         {
           "id": "criterion.recovery-unavailable",
-          "text_md": "An unavailable snapshot gives a clear reason and a safe path to begin without pretending restoration succeeded."
+          "text_md": "An unavailable snapshot uses the wording ‘This offline progress is unavailable. You can start over.’ and gives a safe path without pretending restoration succeeded."
         }
       ]
     }
@@ -125,14 +125,24 @@
         "criterion.restore-choice",
         "criterion.discard-choice"
       ]
+    },
+    {
+      "id": "decision.unavailable-wording",
+      "title": "Unavailable state uses direct learner-facing wording",
+      "decision_md": "Use the learner-facing wording ‘This offline progress is unavailable. You can start over.’ Reserve ‘could not be restored’ for a specific restore failure.",
+      "applies_to": [
+        "phase.recovery-experience",
+        "criterion.recovery-unavailable"
+      ],
+      "rationale_md": "Direct state language tells the learner what is unavailable and gives a safe next action without implying that restoration succeeded."
     }
   ],
   "questions": [
     {
       "id": "question.wording",
       "title": "Choose the learner-facing unavailable wording",
-      "question_md": "Should the unavailable state say that the snapshot is unavailable, or that it could not be restored?",
-      "status": "open",
+      "question_md": "Resolved: use the learner-facing wording ‘This offline progress is unavailable. You can start over.’ Reserve ‘could not be restored’ for a specific restore failure.",
+      "status": "answered",
       "blocking": false,
       "applies_to": [
         "phase.recovery-experience",
@@ -198,7 +208,7 @@
       "id": "file.recovery-prototype-html",
       "root": "package",
       "path": "designs/recovery-prototype.html",
-      "sha256": "c812304b5fd18712e54d7b48258133595e2192ee9c63d698236ae7b29f90a744",
+      "sha256": "8d0d396611de999549af2690c621a17b3b67164366be1fc5459b10b5333fcae2",
       "required": true,
       "media_type": "text/html; charset=utf-8"
     },
@@ -206,7 +216,7 @@
       "id": "file.recovery-prototype-css",
       "root": "package",
       "path": "designs/recovery-prototype.css",
-      "sha256": "e4804f6789fbd91274c235f85b959744d3a704abb1fd556fb903b07c6b07dd7c",
+      "sha256": "4f4fb9c9af533a2d9ab3c18ff9203562d7942d64453df664c33eb6d89854d97b",
       "required": true,
       "media_type": "text/css; charset=utf-8"
     },

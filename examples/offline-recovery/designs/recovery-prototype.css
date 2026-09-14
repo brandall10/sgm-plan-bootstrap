@@ -35,6 +35,13 @@ body {
   margin-top: 1.5rem;
 }
 
+.unavailable-note {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #b7862b;
+  background: #fff7e3;
+}
+
 button {
   border: 0;
   border-radius: 0.5rem;

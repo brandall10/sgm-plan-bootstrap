@@ -2,7 +2,7 @@
 
 Source plan: [W01 — Open and refresh a saved Plan Package](plan.md) — State: Complete; P1–P3 were implemented, locally verified, and integrated into `main`.
 P1: Package validation/loading, atomic publication, confined assets, and both fixtures delivered.
-P2: Accessible viewer, isolated prototypes, browser checks, and the native Browser annotation loop delivered; see [native-surface probe](../../native-surface-probe.md).
+P2: Accessible viewer, isolated prototypes, and the native Browser annotation loop delivered.
 P3: Live refresh, rejection retention, reconnect/recovery, and the representative benchmark delivered.
 Validation: `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:e2e`, `npm run build`, and `npm run measure` passed.
 Lesson: retained content must stay bound to immutable bytes and stable item/revision identity; fixtures remain illustrative, not product evidence.

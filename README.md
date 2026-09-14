@@ -6,7 +6,7 @@ records. It runs locally; no hosted service or account is required.
 
 ## Quick start
 
-Requirements: Node.js `>=20.19`, npm, and Google Chrome for browser checks.
+Requirements: Node.js `>=20.19` and npm.
 
 ```sh
 npm install
@@ -44,26 +44,11 @@ npm run accept -- ...
 
 - [Package format and runtime usage](docs/package-format.md)
 - [Architecture and boundaries](docs/architecture.md)
-- [Native-surface findings](docs/native-surface-probe.md)
 - [Full design specifications](docs/specs/)
 - [Current roadmap and state](project_status.md)
 - [Current plan checklist](status.md)
 - [Plans and detailed results](docs/plans/)
 - [Repository instructions for agents](AGENTS.md)
-
-## Development checks
-
-```sh
-npm run typecheck
-npm run lint
-npm test
-npm run test:e2e
-npm run build
-```
-
-Use `npm run measure` for the local load/render/refresh baseline. Browser checks
-use the installed Chrome channel and do not establish native Codex annotation
-support.
 
 For routine agent work, start with `AGENTS.md` and the current status/plan
 records. Read only the relevant README section when a quickstart or package

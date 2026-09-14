@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -11,6 +11,8 @@ import { SnapshotStore } from "../server/snapshot-store.js";
 const repositoryRoot = resolve(process.cwd());
 let offlineRuntime: RunningRuntime | undefined;
 let saveOutcomeRuntime: RunningRuntime | undefined;
+let offlineFixture: { packageRoot: string } | undefined;
+let saveOutcomeFixture: { packageRoot: string } | undefined;
 
 function runtimeUrl(runtime: RunningRuntime): string {
   return `http://${runtime.host}:${runtime.port}`;
@@ -20,19 +22,22 @@ async function copyFixture(name: string): Promise<{ packageRoot: string }> {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-viewer-e2e-"));
   const packageRoot = join(temporaryRoot, name);
   await cp(resolve(repositoryRoot, "examples", name), packageRoot, { recursive: true });
+  await rm(join(packageRoot, ".plan-package"), { recursive: true, force: true });
   return { packageRoot };
 }
 
 test.beforeAll(async () => {
+  offlineFixture = await copyFixture("offline-recovery");
+  saveOutcomeFixture = await copyFixture("save-outcome");
   offlineRuntime = await startRuntime({
-    packageRoot: resolve(repositoryRoot, "examples/offline-recovery"),
+    packageRoot: offlineFixture.packageRoot,
     repositoryRoot,
     port: 0,
     serveViewer: true,
     viewerRoot: repositoryRoot,
   });
   saveOutcomeRuntime = await startRuntime({
-    packageRoot: resolve(repositoryRoot, "examples/save-outcome"),
+    packageRoot: saveOutcomeFixture.packageRoot,
     repositoryRoot,
     port: 0,
     serveViewer: true,
@@ -51,7 +56,7 @@ test("renders the structured offline package, navigates exact criteria, and expo
   await expect(page.getByRole("heading", { name: "Phase map", exact: true })).toBeVisible();
   const recoveryPhaseLink = page.getByRole("link", { name: "Explain restore and start-over choices", exact: true }).first();
   await expect(recoveryPhaseLink).toBeVisible();
-  await expect(page.getByText("Open · non-blocking", { exact: true })).toBeVisible();
+  await expect(page.getByText("answered", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: /Behavior diagram/ })).toBeVisible();
 
   let reloadRequests = 0;
@@ -128,8 +133,9 @@ test("renders unsafe narrative as text and keeps an unsafe destination inert", a
 test("labels a blocking question and preserves the hierarchy from tablet to narrow layouts", async ({ page }) => {
   await page.route("**/api/candidates/*/model", async (route) => {
     const response = await route.fetch();
-    const model = await response.json() as { package: { questions: Array<{ blocking: boolean }> } };
+    const model = await response.json() as { package: { questions: Array<{ blocking: boolean; status: string }> } };
     model.package.questions[0]!.blocking = true;
+    model.package.questions[0]!.status = "open";
     await route.fulfill({ response, json: model });
   });
   await page.setViewportSize({ width: 1024, height: 900 });
@@ -273,7 +279,7 @@ test("opens the latest real acceptance as a concrete pinned route and compares i
   });
 
   try {
-    const before = await (await fetch(`${runtimeUrl(runtime)}/api/state`)).json() as { packageId: string; currentSnapshotId: string; };
+    const before = await (await fetch(`${runtimeUrl(runtime)}/api/state`)).json() as { packageId: string; currentSnapshotId: string; currentRevision: number; };
     const snapshotStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
     const recorded = await snapshotStore.recordAcceptance({
       format: "plan-package-acceptance",
@@ -308,7 +314,7 @@ test("opens the latest real acceptance as a concrete pinned route and compares i
     await page.getByTestId("view-draft").click();
     await expect(page).toHaveURL(/\/draft$/);
     await expect(page.getByText("Working draft", { exact: true }).first()).toBeVisible();
-    await expect(page.getByTestId("current-revision")).toHaveText("3");
+    await expect(page.getByTestId("current-revision")).toHaveText(String(before.currentRevision + 1));
   } finally {
     await page.goto("about:blank");
     await runtime.close();

@@ -197,28 +197,3 @@ arrives; it is not hot-looped in the background. If the connection label remains
 `reconnecting`, keep the viewer open while the local runtime is restarted or use
 **Try again** after the runtime is available. The current hash route is preserved
 across a transient disconnect.
-
-## Browser and host checks
-
-Run the phase checks with:
-
-```sh
-npm run typecheck
-npm run lint
-npm test
-npm run test:e2e
-npm run build
-```
-
-`npm run test:e2e` uses the local Google Chrome channel through Playwright. It
-opens both fixtures, follows phase and criterion links, verifies generated
-diagrams and diagnostics, exercises the mock inside its sandbox, checks unsafe
-narrative handling, and verifies tablet/narrow layout behavior. The
-[native-surface probe](native-surface-probe.md) is separate evidence: browser
-checks do not prove that an annotation reaches an agent.
-
-For a representative five-run local baseline, run `npm run measure`. It reports
-warm candidate load, runtime opening, browser rendering, text refresh, and asset
-refresh separately, including ranges and medians plus the machine/runtime/browser
-used. Dependency installation and agent/content-authoring time are outside those
-samples.
