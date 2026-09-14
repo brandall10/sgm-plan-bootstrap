@@ -186,21 +186,6 @@ surviving phase or the package overview and explains the fallback. A candidate t
 is no longer available after a runtime restart is reported as unavailable rather
 than silently showing a different candidate.
 
-### Native feedback trial
-
-Native feedback remains in the host annotation surface or conversation; the local
-viewer does not invent an annotation transport. For a review trial, record the
-concrete snapshot ID and stable item ID shown by the viewer, interpret the comment
-against that snapshot, and apply compatible changes to the working package. Publish
-the complete draft, then compare the old snapshot with `draft` so the accepted bytes,
-changed item, and retained prototype dependencies remain separately inspectable.
-
-If feedback names a changed or removed item, do not silently reinterpret it against
-the current draft. Account for it as stale, deferred, or unresolved and retain the
-source snapshot link. Automated browser checks can exercise stale-target fallback,
-but they do not establish that a native annotation reached the agent. Keep actual
-host-receipt evidence separate from those simulated checks.
-
 ### Refresh troubleshooting
 
 If the viewer says it is showing the last valid revision, inspect `/api/state` and
@@ -212,28 +197,3 @@ arrives; it is not hot-looped in the background. If the connection label remains
 `reconnecting`, keep the viewer open while the local runtime is restarted or use
 **Try again** after the runtime is available. The current hash route is preserved
 across a transient disconnect.
-
-## Browser and host checks
-
-Run the phase checks with:
-
-```sh
-npm run typecheck
-npm run lint
-npm test
-npm run test:e2e
-npm run build
-```
-
-`npm run test:e2e` uses the local Google Chrome channel through Playwright. It
-opens both fixtures, follows phase and criterion links, verifies generated
-diagrams and diagnostics, exercises the mock inside its sandbox, checks unsafe
-narrative handling, and verifies tablet/narrow layout behavior. The
-[native-surface probe](native-surface-probe.md) is separate evidence: browser
-checks do not prove that an annotation reaches an agent.
-
-For a representative five-run local baseline, run `npm run measure`. It reports
-warm candidate load, runtime opening, browser rendering, text refresh, and asset
-refresh separately, including ranges and medians plus the machine/runtime/browser
-used. Dependency installation and agent/content-authoring time are outside those
-samples.
