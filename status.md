@@ -4,9 +4,9 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 P3 is complete and integrated in `main` via [PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10) at `31c26ad`. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9). W03 P4 is implemented, verified, and delivered via [PR #11](https://github.com/brandall10/sgm-plan-bootstrap/pull/11) at `6bc3f9c`; review is pending.
+State: W03 P4 is complete and integrated in `main` via [PR #11](https://github.com/brandall10/sgm-plan-bootstrap/pull/11) at `1bc7fa8`. W03 P3 is complete and integrated in `main` via [PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10) at `31c26ad`. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9).
 
-Next action: Review and accept [PR #11](https://github.com/brandall10/sgm-plan-bootstrap/pull/11), then resume with `status-accept` for integration and cleanup.
+Next action: Select W04 via `status-next`; no W04 plan is active.
 
 ## P1 — Model declared obligations and deterministic selections
 
