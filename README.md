@@ -34,7 +34,7 @@ npm run publish -- --package <package-directory>
 The runtime creates an ignored `.plan-package/` directory beside the selected
 package for immutable snapshot descriptors and retained bytes. Record an
 authorized acceptance only for a concrete snapshot with the explicit command
-documented in [the package history guide](docs/package-history.md#durable-snapshots-and-acceptance):
+documented in [the package history guide](docs/package/package-history.md#durable-snapshots-and-acceptance):
 
 ```sh
 npm run accept -- ...
@@ -52,9 +52,9 @@ them. Read the format guide while authoring or publishing `plan.json`, the
 history guide when accepting or recording results, and the runtime guide when
 launching, reviewing, or troubleshooting the viewer.
 
-- [Package format and publication](docs/package-format.md)
-- [Package history, acceptance, and results](docs/package-history.md)
-- [Local runtime and viewer](docs/runtime-and-viewer.md)
+- [Package format and publication](docs/package/package-format.md)
+- [Package history, acceptance, and results](docs/package/package-history.md)
+- [Local runtime and viewer](docs/package/runtime-and-viewer.md)
 - [Architecture and boundaries](docs/architecture.md)
 - [Full design specifications](docs/specs/)
 - [Current roadmap and state](project_status.md)
