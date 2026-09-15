@@ -163,6 +163,7 @@ describe("candidate loading and publication", () => {
 
   it("generation-fences a slow load behind a newer publication request", async () => {
     const fixture = await copyFixture("save-outcome");
+    const originalManifest = JSON.parse(await readFile(join(fixture.packageRoot, "plan.json"), "utf8")) as { revision: number };
     let releaseFirstLoad: (() => void) | undefined;
     let firstLoadStarted: (() => void) | undefined;
     const firstLoadReady = new Promise<void>((resolveReady) => { firstLoadStarted = resolveReady; });
@@ -185,22 +186,23 @@ describe("candidate loading and publication", () => {
 
     expect(await firstLoad).toBeNull();
     const current = await newerLoad;
-    expect(current?.revision).toBe(2);
-    expect(store.getCurrentCandidate()?.revision).toBe(2);
+    expect(current?.revision).toBe(originalManifest.revision + 1);
+    expect(store.getCurrentCandidate()?.revision).toBe(originalManifest.revision + 1);
   });
 
   it("publishes a validated manifest with new digests and an incremented revision", async () => {
     const fixture = await copyFixture("save-outcome");
     await writeFile(join(fixture.packageRoot, "docs/save-outcome-notes.md"), "A newly published wording.\n");
+    const originalManifest = JSON.parse(await readFile(join(fixture.packageRoot, "plan.json"), "utf8")) as { revision: number };
 
     const result = await publishPackage({ packageRoot: fixture.packageRoot });
     const manifest = JSON.parse(await readFile(join(fixture.packageRoot, "plan.json"), "utf8")) as { revision: number; files: Array<{ path: string; sha256: string }> };
     const note = manifest.files.find((file) => file.path === "docs/save-outcome-notes.md");
 
     expect(result.published).toBe(true);
-    expect(result.revision).toBe(2);
-    expect(result.candidate?.revision).toBe(2);
-    expect(manifest.revision).toBe(2);
+    expect(result.revision).toBe(originalManifest.revision + 1);
+    expect(result.candidate?.revision).toBe(originalManifest.revision + 1);
+    expect(manifest.revision).toBe(originalManifest.revision + 1);
     expect(note?.sha256).toBe("f5023d4d1f206d8f63ea675ce9aa8f8eb951b8337377f7a670e5e2000d0177a9");
   });
 

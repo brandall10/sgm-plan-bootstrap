@@ -2,7 +2,7 @@
   "format": "plan-package",
   "format_version": "1.0",
   "id": "offline-recovery",
-  "revision": 3,
+  "revision": 4,
   "title": "Make offline exercise recovery explicit",
   "goal_md": "Give a learner an honest way to restore or discard offline progress while preserving the last known good state.",
   "scope": {
@@ -38,6 +38,18 @@
       "depends_on": [],
       "objective_md": "Callers can distinguish saved, unsaved, unavailable, restored, and discarded outcomes without guessing from a notification.",
       "approach_md": "Keep snapshot reads and writes behind a small session boundary. Return an explicit outcome only after the write completes, retain the prior valid snapshot after a failure, and fence queued writes when a session is discarded.",
+      "tasks": [
+        {
+          "id": "task.persistence-implementation",
+          "text_md": "Implement the explicit persistence outcome boundary and its discard fence.",
+          "activity": "implement"
+        },
+        {
+          "id": "task.persistence-verification",
+          "text_md": "Verify saved, unsaved, unavailable, and discarded outcomes across successful, failed, and stale writes.",
+          "activity": "verify"
+        }
+      ],
       "acceptance_criteria": [
         {
           "id": "criterion.saved-after-success",
@@ -65,6 +77,18 @@
       ],
       "objective_md": "The recovery surface makes the available snapshot and each consequence clear before the learner chooses restore or start over.",
       "approach_md": "Use a compact recovery panel with explicit result labels, a visibly illustrative prototype, and a fallback when the snapshot is unavailable. Keep the persistence outcomes from the preceding phase visible in the UI contract.",
+      "tasks": [
+        {
+          "id": "task.recovery-implementation",
+          "text_md": "Implement the recovery choice surface with explicit restore, start-over, and unavailable outcomes.",
+          "activity": "implement"
+        },
+        {
+          "id": "task.recovery-verification",
+          "text_md": "Verify the recovery surface preserves the named persistence outcomes and safe unavailable path.",
+          "activity": "verify"
+        }
+      ],
       "acceptance_criteria": [
         {
           "id": "criterion.restore-choice",
@@ -77,6 +101,14 @@
         {
           "id": "criterion.recovery-unavailable",
           "text_md": "An unavailable snapshot uses the wording ‘This offline progress is unavailable. You can start over.’ and gives a safe path without pretending restoration succeeded."
+        },
+        {
+          "id": "criterion.recovery-outcome-contract",
+          "text_md": "The recovery experience receives named saved, unsaved, unavailable, restored, and discarded outcomes from persistence without inferring them from presentation.",
+          "applies_to": [
+            "phase.persistence-outcomes",
+            "phase.recovery-experience"
+          ]
         }
       ]
     }
@@ -231,6 +263,7 @@
   ],
   "required_capabilities": [
     "inline-phases.v1",
+    "context-selection.v1",
     "digest-manifest.v1",
     "local-reference-roots.v1",
     "candidate-assets.v1",

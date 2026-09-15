@@ -2,7 +2,7 @@
   "format": "plan-package",
   "format_version": "1.0",
   "id": "save-outcome",
-  "revision": 1,
+  "revision": 2,
   "state": "draft",
   "title": "Expose the saved-progress outcome",
   "goal_md": "Tell a caller whether completed practice progress was actually persisted.",
@@ -29,6 +29,18 @@
       "depends_on": [],
       "objective_md": "Callers can distinguish saved completion from a completion whose write failed.",
       "approach_md": "Keep persistence behind a small result-returning boundary and pass the result through the completion caller without interpreting a notification as proof.",
+      "tasks": [
+        {
+          "id": "task.save-outcome-implementation",
+          "text_md": "Implement the result-returning persistence boundary and caller propagation.",
+          "activity": "implement"
+        },
+        {
+          "id": "task.save-outcome-verification",
+          "text_md": "Verify successful read-back and failed-write preservation before reporting the outcome.",
+          "activity": "verify"
+        }
+      ],
       "acceptance_criteria": [
         {
           "id": "criterion.failed-save",
@@ -94,6 +106,7 @@
   ],
   "required_capabilities": [
     "inline-phases.v1",
+    "context-selection.v1",
     "digest-manifest.v1",
     "local-reference-roots.v1",
     "candidate-assets.v1",

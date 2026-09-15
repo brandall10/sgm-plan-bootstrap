@@ -176,6 +176,7 @@ describe("local package runtime", () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-reload-"));
     const packageRoot = join(temporaryRoot, "save-outcome");
     await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const originalRevision = (JSON.parse(await readFile(join(packageRoot, "plan.json"), "utf8")) as { revision: number }).revision;
     const runtime = await startRuntime({ packageRoot, port: 0 });
 
     try {
@@ -185,7 +186,7 @@ describe("local package runtime", () => {
       const reloaded = await (await fetch(`http://${runtime.host}:${runtime.port}/api/reload`, { method: "POST" })).json() as { currentCandidateId: string | null; currentRevision: number | null };
 
       expect(before.currentCandidateId).not.toBeNull();
-      expect(reloaded.currentRevision).toBe(2);
+      expect(reloaded.currentRevision).toBe(originalRevision + 1);
       expect(reloaded.currentCandidateId).not.toBe(before.currentCandidateId);
     } finally {
       await runtime.close();
@@ -196,6 +197,7 @@ describe("local package runtime", () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-watch-"));
     const packageRoot = join(temporaryRoot, "save-outcome");
     await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const originalRevision = (JSON.parse(await readFile(join(packageRoot, "plan.json"), "utf8")) as { revision: number }).revision;
     const runtime = await startRuntime({ packageRoot, port: 0, watchDebounceMs: 30 });
 
     try {
@@ -209,10 +211,10 @@ describe("local package runtime", () => {
       expect(firstPublish.published).toBe(true);
       await waitFor(async () => {
         const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null };
-        return state.currentRevision === 2;
+        return state.currentRevision === originalRevision + 1;
       });
       const afterText = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; lastAttempt: string };
-      expect(afterText.currentRevision).toBe(2);
+      expect(afterText.currentRevision).toBe(originalRevision + 1);
       expect(afterText.currentCandidateId).not.toBe(before.currentCandidateId);
       expect(afterText.lastAttempt).toBe("published");
 
@@ -220,11 +222,11 @@ describe("local package runtime", () => {
       await writeFile(assetPath, "not an svg yet\n");
       await waitFor(async () => {
         const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; diagnostics: Array<{ code: string }>; lastAttempt: string };
-        return state.lastAttempt === "rejected" && state.currentRevision === 2 && state.diagnostics.some((diagnostic) => diagnostic.code === "digest-mismatch");
+        return state.lastAttempt === "rejected" && state.currentRevision === originalRevision + 1 && state.diagnostics.some((diagnostic) => diagnostic.code === "digest-mismatch");
       });
       const rejected = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; diagnostics: Array<{ code: string }> };
       expect(rejected.currentCandidateId).toBe(afterText.currentCandidateId);
-      expect(rejected.currentRevision).toBe(2);
+      expect(rejected.currentRevision).toBe(originalRevision + 1);
       const retained = runtime.store.getCurrentCandidate();
       expect(retained?.getFileBytes("file.save-outcome-notes")).toEqual(new TextEncoder().encode("A watched text update is published atomically.\n"));
 
@@ -233,10 +235,10 @@ describe("local package runtime", () => {
       expect(secondPublish.published).toBe(true);
       await waitFor(async () => {
         const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null };
-        return state.currentRevision === 3;
+        return state.currentRevision === originalRevision + 2;
       });
       const recovered = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null; lastAttempt: string };
-      expect(recovered.currentRevision).toBe(3);
+      expect(recovered.currentRevision).toBe(originalRevision + 2);
       expect(recovered.currentCandidateId).not.toBe(rejected.currentCandidateId);
       expect(recovered.lastAttempt).toBe("published");
       const assetResponse = await fetch(`http://${runtime.host}:${runtime.port}/api/candidates/${recovered.currentCandidateId}/assets/asset.save-outcome-diagram`);
@@ -252,6 +254,7 @@ describe("local package runtime", () => {
     await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
     const manifestPath = join(packageRoot, "plan.json");
     const originalManifest = await readFile(manifestPath);
+    const originalRevision = (JSON.parse(new TextDecoder().decode(originalManifest)) as { revision: number }).revision;
     await writeFile(manifestPath, "{\n");
     const runtime = await startRuntime({ packageRoot, port: 0, watchDebounceMs: 30 });
 
@@ -267,7 +270,7 @@ describe("local package runtime", () => {
       });
       const recovered = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentCandidateId: string | null; currentRevision: number | null };
       expect(recovered.currentCandidateId).not.toBeNull();
-      expect(recovered.currentRevision).toBe(1);
+      expect(recovered.currentRevision).toBe(originalRevision);
     } finally {
       await runtime.close();
     }
@@ -282,8 +285,10 @@ describe("local package runtime", () => {
     await writeFile(dependencyPath, "The newly declared dependency.\n");
     const manifestPath = join(packageRoot, "plan.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+      revision: number;
       files: Array<{ id: string; root: string; path: string; sha256: string; required: boolean }>;
     };
+    const originalRevision = manifest.revision;
     manifest.files.push({ id: "file.new-dependency", root: "package", path: "new-dependencies/nested/notes.md", sha256: "0".repeat(64), required: true });
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     const runtime = await startRuntime({ packageRoot, port: 0, watchDebounceMs: 30 });
@@ -293,18 +298,18 @@ describe("local package runtime", () => {
       expect(published.published).toBe(true);
       await waitFor(async () => {
         const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null };
-        return state.currentRevision === 2;
+        return state.currentRevision === originalRevision + 1;
       });
 
       await writeFile(dependencyPath, "The dependency changed after it was discovered.\n");
       await waitFor(async () => {
         const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null; lastAttempt: string; diagnostics: Array<{ code: string }> };
-        return state.currentRevision === 2 && state.lastAttempt === "rejected" && state.diagnostics.some((diagnostic) => diagnostic.code === "digest-mismatch");
+        return state.currentRevision === originalRevision + 1 && state.lastAttempt === "rejected" && state.diagnostics.some((diagnostic) => diagnostic.code === "digest-mismatch");
       });
       await publishPackage({ packageRoot });
       await waitFor(async () => {
         const state = await (await fetch(`http://${runtime.host}:${runtime.port}/api/state`)).json() as { currentRevision: number | null; lastAttempt: string };
-        return state.currentRevision === 3 && state.lastAttempt === "published";
+        return state.currentRevision === originalRevision + 2 && state.lastAttempt === "published";
       });
     } finally {
       await runtime.close();
@@ -315,6 +320,7 @@ describe("local package runtime", () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-events-"));
     const packageRoot = join(temporaryRoot, "save-outcome");
     await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const originalRevision = (JSON.parse(await readFile(join(packageRoot, "plan.json"), "utf8")) as { revision: number }).revision;
     const runtime = await startRuntime({ packageRoot, port: 0, watch: false });
     const eventResponse = await fetch(`http://${runtime.host}:${runtime.port}/api/events`);
     const reader = eventResponse.body?.getReader();
@@ -324,14 +330,14 @@ describe("local package runtime", () => {
     try {
       expect(eventResponse.headers.get("content-type")).toContain("text/event-stream");
       const initial = await readSseEvent(reader, buffer, "state") as { currentRevision: number; lastAttempt: string };
-      expect(initial.currentRevision).toBe(1);
+      expect(initial.currentRevision).toBe(originalRevision);
       expect(initial.lastAttempt).toBe("published");
 
       await writeFile(join(packageRoot, "docs/save-outcome-notes.md"), "stale bytes before publication\n");
       const rejectedResponse = await fetch(`http://${runtime.host}:${runtime.port}/api/reload`, { method: "POST" });
       expect(rejectedResponse.status).toBe(200);
       const rejected = await readSseEvent(reader, buffer, "candidate-rejected") as { currentRevision: number; lastAttempt: string; diagnostics: Array<{ code: string }> };
-      expect(rejected.currentRevision).toBe(1);
+      expect(rejected.currentRevision).toBe(originalRevision);
       expect(rejected.lastAttempt).toBe("rejected");
       expect(rejected.diagnostics.map((diagnostic) => diagnostic.code)).toContain("digest-mismatch");
 
