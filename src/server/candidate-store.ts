@@ -3,11 +3,12 @@ import { errorDiagnostic } from "../core/diagnostics.js";
 import { join, posix } from "node:path";
 
 import { compareSnapshots, type SnapshotComparisonResult } from "../core/compare.js";
-import type { PackageAsset, PackageFile, PlanPackage } from "../core/package.js";
+import { resultEvidenceStatus, type ResultEvidenceStatus, type ResultRecord } from "../core/result.js";
+import type { ContextActivity, PackageAsset, PackageFile, PlanPackage } from "../core/package.js";
 import type { AcceptanceRecord } from "../core/snapshot.js";
 import { loadCandidate, type CandidateLoadOptions, type LoadedCandidate } from "./candidate-loader.js";
 import { contentTypeForPath } from "./paths.js";
-import { SnapshotStore, type StoredSnapshot } from "./snapshot-store.js";
+import { SnapshotStore, type ResultHistoryResult, type ResultOpenResult, type ResultWriteResult, type StoredSnapshot } from "./snapshot-store.js";
 
 export interface RuntimeFileResponse {
   bytes: Uint8Array;
@@ -39,6 +40,24 @@ export interface RuntimeSnapshotSummary {
   omissions: StoredSnapshot["descriptor"]["omissions"];
 }
 
+export interface RuntimeResultProjection {
+  record: ResultRecord;
+  status: "current" | "superseded";
+  evidence_status: ResultEvidenceStatus;
+  acceptance_status: RuntimeModel["acceptance_status"];
+}
+
+export interface RuntimePhaseResultActivity {
+  activity: ContextActivity;
+  current_result_ids: string[];
+  historical_result_ids: string[];
+}
+
+export interface RuntimePhaseResultAvailability {
+  phase_id: string;
+  activities: RuntimePhaseResultActivity[];
+}
+
 export interface RuntimeHistory {
   package_id: string | null;
   defaultView: RuntimeViewReference;
@@ -50,6 +69,9 @@ export interface RuntimeHistory {
   snapshots: RuntimeSnapshotSummary[];
   acceptances: AcceptanceRecord[];
   diagnostics: Diagnostic[];
+  results: RuntimeResultProjection[];
+  phase_results: RuntimePhaseResultAvailability[];
+  result_diagnostics: Diagnostic[];
 }
 
 /** The immutable, browser-facing projection of one accepted runtime candidate. */
@@ -69,6 +91,9 @@ export interface RuntimeModel {
   files: PackageFile[];
   snapshot_id: string | null;
   acceptances: AcceptanceRecord[];
+  results: RuntimeResultProjection[];
+  phase_results: RuntimePhaseResultAvailability[];
+  result_diagnostics: Diagnostic[];
 }
 
 export interface RuntimeState {
@@ -81,6 +106,8 @@ export interface RuntimeState {
   planningBlockers: Diagnostic[];
   acceptances: AcceptanceRecord[];
   acceptanceDiagnostics: Diagnostic[];
+  results: RuntimeResultProjection[];
+  resultDiagnostics: Diagnostic[];
   /** Outcome of the most recent candidate load attempt. */
   lastAttempt: "published" | "rejected" | null;
 }
@@ -105,6 +132,7 @@ export class CandidateStore {
   private loadQueue: Promise<void> = Promise.resolve();
   private readonly snapshotStores = new Map<string, SnapshotStore>();
   private readonly storedSnapshots = new Map<string, StoredSnapshot>();
+  private resultHistory: ResultHistoryResult = { records: [], current: [], diagnostics: [] };
 
   private storeFor(options: CandidateLoadOptions): SnapshotStore {
     if (options.snapshotStore) return options.snapshotStore;
@@ -141,8 +169,37 @@ export class CandidateStore {
     return snapshot;
   }
 
+  private resultProjections(snapshotId: string | null): RuntimeResultProjection[] {
+    if (!snapshotId) return [];
+    const currentIds = new Set(this.resultHistory.current.map((record) => record.result_id));
+    return this.resultHistory.records
+      .filter((record) => record.snapshot_id === snapshotId)
+      .map((record) => ({
+        record,
+        status: currentIds.has(record.result_id) ? "current" : "superseded",
+        evidence_status: resultEvidenceStatus(record),
+        acceptance_status: this.acceptanceStatus(record.snapshot_id),
+      } satisfies RuntimeResultProjection));
+  }
+
+  private phaseResultAvailability(plan: PlanPackage, snapshotId: string | null): RuntimePhaseResultAvailability[] {
+    const results = this.resultProjections(snapshotId);
+    return plan.phases.map((phase) => ({
+      phase_id: phase.id,
+      activities: (["implement", "verify"] as const).map((activity) => {
+        const phaseResults = results.filter((result) => result.record.phase_id === phase.id && result.record.activity === activity);
+        return {
+          activity,
+          current_result_ids: phaseResults.filter((result) => result.status === "current").map((result) => result.record.result_id),
+          historical_result_ids: phaseResults.map((result) => result.record.result_id),
+        } satisfies RuntimePhaseResultActivity;
+      }),
+    }));
+  }
+
   private modelFromCandidate(candidate: LoadedCandidate): RuntimeModel {
     const acceptanceRecords = this.acceptanceRecords(candidate.snapshotId);
+    const results = this.resultProjections(candidate.snapshotId ?? null);
     return {
       package: candidate.plan,
       package_id: candidate.packageId,
@@ -159,11 +216,15 @@ export class CandidateStore {
       files: [...candidate.files.values()].map(({ file }) => ({ ...file })),
       snapshot_id: candidate.snapshotId ?? null,
       acceptances: [...this.acceptances],
+      results,
+      phase_results: this.phaseResultAvailability(candidate.plan, candidate.snapshotId ?? null),
+      result_diagnostics: [...this.resultHistory.diagnostics],
     };
   }
 
   private modelFromSnapshot(snapshot: StoredSnapshot): RuntimeModel {
     const acceptanceRecords = this.acceptanceRecords(snapshot.snapshotId);
+    const results = this.resultProjections(snapshot.snapshotId);
     return {
       package: snapshot.plan,
       package_id: snapshot.packageId,
@@ -180,6 +241,9 @@ export class CandidateStore {
       files: [...snapshot.files.values()].map(({ file }) => ({ ...file })),
       snapshot_id: snapshot.snapshotId,
       acceptances: [...this.acceptances],
+      results,
+      phase_results: this.phaseResultAvailability(snapshot.plan, snapshot.snapshotId),
+      result_diagnostics: [...this.resultHistory.diagnostics],
     };
   }
 
@@ -257,6 +321,7 @@ export class CandidateStore {
       const history = await snapshotStore.listAcceptances(result.candidate.packageId);
       this.acceptances = [...history.records];
       this.acceptanceDiagnostics = [...history.diagnostics];
+      this.resultHistory = await snapshotStore.listResults(result.candidate.packageId);
       const candidate: LoadedCandidate = { ...result.candidate, snapshotId: descriptor.snapshot_id };
       this.candidates.set(candidate.contentId, candidate);
       this.currentCandidateId = candidate.contentId;
@@ -399,6 +464,8 @@ export class CandidateStore {
       planningBlockers: [...this.lastPlanningBlockers],
       acceptances: [...this.acceptances],
       acceptanceDiagnostics: [...this.acceptanceDiagnostics],
+      results: this.resultProjections(current?.snapshotId ?? null),
+      resultDiagnostics: [...this.resultHistory.diagnostics],
       lastAttempt: this.lastAttempt,
     };
   }
@@ -417,14 +484,40 @@ export class CandidateStore {
     const result = await store.open(snapshotId);
     if (!result.snapshot) return { model: null, diagnostics: result.diagnostics };
     this.rememberSnapshot(store, result.snapshot);
-    return { model: this.modelFromSnapshot(result.snapshot), diagnostics: [...result.diagnostics] };
+    const acceptanceHistory = await store.listAcceptances(result.snapshot.packageId);
+    this.acceptances = [...acceptanceHistory.records];
+    this.acceptanceDiagnostics = [...acceptanceHistory.diagnostics];
+    this.resultHistory = await store.listResults(result.snapshot.packageId);
+    return { model: this.modelFromSnapshot(result.snapshot), diagnostics: [...result.diagnostics, ...acceptanceHistory.diagnostics] };
+  }
+
+  async getResultHistory(options: CandidateLoadOptions, packageId?: string): Promise<ResultHistoryResult> {
+    const store = this.storeFor(options);
+    const history = await store.listResults(packageId ?? this.getCurrentCandidate()?.packageId);
+    this.resultHistory = history;
+    return history;
+  }
+
+  async getResult(options: CandidateLoadOptions, resultId: string): Promise<ResultOpenResult> {
+    return this.storeFor(options).openResult(resultId);
+  }
+
+  async recordResult(options: CandidateLoadOptions, record: ResultRecord): Promise<ResultWriteResult> {
+    const store = this.storeFor(options);
+    const result = await store.recordResult(record);
+    if (result.result) this.resultHistory = await store.listResults(result.result.package_id);
+    return result;
   }
 
   async getHistory(options: CandidateLoadOptions): Promise<RuntimeHistory> {
     const current = this.getCurrentCandidate();
-    const packageId = current?.packageId ?? null;
     const store = this.storeFor(options);
-    const listed = packageId ? await store.listSnapshots(packageId) : { snapshots: [], diagnostics: [] };
+    const listed = await store.listSnapshots(current?.packageId);
+    const packageId = current?.packageId ?? listed.snapshots[0]?.packageId ?? null;
+    const acceptanceHistory = await store.listAcceptances(packageId ?? undefined);
+    this.acceptances = [...acceptanceHistory.records];
+    this.acceptanceDiagnostics = [...acceptanceHistory.diagnostics];
+    this.resultHistory = await store.listResults(packageId ?? undefined);
     for (const snapshot of listed.snapshots) this.rememberSnapshot(store, snapshot);
     const snapshots = listed.snapshots.map((snapshot) => {
       const records = this.acceptanceRecords(snapshot.snapshotId);
@@ -448,6 +541,14 @@ export class CandidateStore {
       snapshots,
       acceptances: [...this.acceptances],
       diagnostics: [...listed.diagnostics, ...this.acceptanceDiagnostics],
+      results: this.resultHistory.records.map((record) => ({
+        record,
+        status: this.resultHistory.current.some((currentRecord) => currentRecord.result_id === record.result_id) ? "current" : "superseded",
+        evidence_status: resultEvidenceStatus(record),
+        acceptance_status: this.acceptanceStatus(record.snapshot_id),
+      } satisfies RuntimeResultProjection)),
+      phase_results: current ? this.phaseResultAvailability(current.plan, current.snapshotId ?? null) : [],
+      result_diagnostics: [...this.resultHistory.diagnostics],
     };
   }
 

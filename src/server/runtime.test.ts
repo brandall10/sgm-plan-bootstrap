@@ -1,14 +1,45 @@
-import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import type { ResultRecord } from "../core/result.js";
 import { startRuntime } from "./runtime.js";
 import { publishPackage } from "./publication.js";
 import { SnapshotStore } from "./snapshot-store.js";
 
 const repositoryRoot = resolve(process.cwd());
+
+function runtimeResult(snapshotId: string, resultId: string, overrides: Partial<ResultRecord> = {}): ResultRecord {
+  return {
+    format: "plan-package-result",
+    format_version: "1",
+    result_id: resultId,
+    package_id: "save-outcome",
+    snapshot_id: snapshotId,
+    phase_id: "phase.save-outcome",
+    activity: "verify",
+    author: "agent:runtime-test",
+    recorded_at: "2026-09-14T18:00:00.000Z",
+    code_revision: "runtime-commit-1",
+    environment: { runner: "vitest" },
+    related_item_ids: ["criterion.successful-save"],
+    intended_work: [],
+    observed_facts: [{ id: "fact.runtime", text_md: "The runtime can project this result.", disposition: "observed", related_item_ids: ["criterion.successful-save"] }],
+    inferences: [],
+    unverified_claims: [],
+    produced_interfaces: [],
+    deviations: [],
+    unresolved_findings: [],
+    evidence: [{ id: "evidence.runtime", kind: "test", label: "Runtime test", locator: "runtime.test.ts", code_revision: "runtime-commit-1", statement_ids: ["fact.runtime"], status: "current" }],
+    delivery_facts: { review_status: "not-reviewed", integration_status: "not-integrated" },
+    continuation_notes: [],
+    supersedes: [],
+    illustrative: true,
+    ...overrides,
+  };
+}
 
 async function waitFor(check: () => Promise<boolean>, timeoutMs = 4_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -93,6 +124,107 @@ describe("local package runtime", () => {
       expect(history.records.map((record) => record.record_id)).toContain("acceptance.runtime-test");
     } finally {
       await runtime.close();
+    }
+  });
+
+  it("projects current and superseded results with per-phase availability", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-results-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const runtime = await startRuntime({ packageRoot, port: 0, watch: false });
+
+    try {
+      const base = `http://${runtime.host}:${runtime.port}`;
+      const initial = await (await fetch(`${base}/api/state`)).json() as { currentSnapshotId: string | null; currentCandidateId: string | null };
+      if (!initial.currentSnapshotId || !initial.currentCandidateId) throw new Error("Runtime did not publish the fixture.");
+      const snapshotStore = new SnapshotStore({ root: join(packageRoot, ".plan-package") });
+      const first = runtimeResult(initial.currentSnapshotId, "result.runtime-first");
+      const second = runtimeResult(initial.currentSnapshotId, "result.runtime-second", {
+        recorded_at: "2026-09-14T19:00:00.000Z",
+        code_revision: "runtime-commit-2",
+        evidence: [{ id: "evidence.runtime-second", kind: "test", label: "Runtime repair test", locator: "runtime.test.ts", code_revision: "runtime-commit-2", statement_ids: ["fact.runtime"], status: "current" }],
+        supersedes: [first.result_id],
+      });
+      expect((await snapshotStore.recordResult(first)).created).toBe(true);
+      expect((await snapshotStore.recordResult(second)).created).toBe(true);
+
+      await fetch(`${base}/api/reload`, { method: "POST" });
+      const model = await (await fetch(`${base}/api/candidates/${initial.currentCandidateId}/model`)).json() as {
+        results: Array<{ record: { result_id: string }; status: string; evidence_status: string; acceptance_status: string }>;
+        phase_results: Array<{ phase_id: string; activities: Array<{ activity: string; current_result_ids: string[]; historical_result_ids: string[] }> }>;
+      };
+      const verificationAvailability = model.phase_results.find((phase) => phase.phase_id === "phase.save-outcome")?.activities.find((activity) => activity.activity === "verify");
+
+      expect(model.results.map((result) => [result.record.result_id, result.status, result.acceptance_status])).toEqual([
+        ["result.runtime-first", "superseded", "unverified"],
+        ["result.runtime-second", "current", "unverified"],
+      ]);
+      expect(verificationAvailability).toEqual({
+        activity: "verify",
+        current_result_ids: ["result.runtime-second"],
+        historical_result_ids: ["result.runtime-first", "result.runtime-second"],
+      });
+
+      const resultsResponse = await fetch(`${base}/api/results`);
+      const resultsBody = await resultsResponse.json() as { records: Array<{ record: { result_id: string } }>; phase_results: typeof model.phase_results };
+      expect(resultsResponse.status).toBe(200);
+      expect(resultsBody.records.map((result) => result.record.result_id)).toEqual(["result.runtime-first", "result.runtime-second"]);
+      expect(resultsBody.phase_results).toEqual(model.phase_results);
+
+      const resultResponse = await fetch(`${base}/api/results/result.runtime-second`);
+      const resultBody = await resultResponse.json() as { result: { snapshot_id: string; phase_id: string } };
+      expect(resultResponse.status).toBe(200);
+      expect(resultBody.result).toEqual({ ...second, continuation_notes: [] });
+    } finally {
+      await runtime.close();
+    }
+  });
+
+  it("recovers an accepted result through a fresh snapshot view when draft files are gone", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "plan-runtime-result-recovery-"));
+    const packageRoot = join(temporaryRoot, "save-outcome");
+    await cp(resolve(repositoryRoot, "examples/save-outcome"), packageRoot, { recursive: true });
+    const firstRuntime = await startRuntime({ packageRoot, port: 0, watch: false });
+    let snapshotId: string;
+
+    try {
+      const state = await (await fetch(`http://${firstRuntime.host}:${firstRuntime.port}/api/state`)).json() as { packageId: string; currentSnapshotId: string | null };
+      if (!state.currentSnapshotId) throw new Error("Runtime did not publish the fixture.");
+      snapshotId = state.currentSnapshotId;
+      const store = new SnapshotStore({ root: join(packageRoot, ".plan-package") });
+      expect((await store.recordAcceptance({
+        format: "plan-package-acceptance",
+        format_version: "1",
+        record_id: "acceptance.result-recovery",
+        package_id: state.packageId,
+        snapshot_id: snapshotId,
+        instruction: "I accept this exact result-recovery snapshot.",
+        source: "conversation:result-recovery",
+        actor: "user:result-recovery",
+        recorded_at: "2026-09-14T20:00:00.000Z",
+        illustrative: false,
+      })).created).toBe(true);
+      expect((await store.recordResult(runtimeResult(snapshotId, "result.recovery"))).created).toBe(true);
+    } finally {
+      await firstRuntime.close();
+    }
+
+    await unlink(join(packageRoot, "plan.json"));
+    await unlink(join(packageRoot, "docs/save-outcome-notes.md"));
+    await unlink(join(packageRoot, "assets/save-outcome.svg"));
+    const freshRuntime = await startRuntime({ packageRoot, port: 0, watch: false });
+    try {
+      const freshState = await (await fetch(`http://${freshRuntime.host}:${freshRuntime.port}/api/state`)).json() as { currentCandidateId: string | null };
+      expect(freshState.currentCandidateId).toBeNull();
+      const response = await fetch(`http://${freshRuntime.host}:${freshRuntime.port}/api/snapshots/${snapshotId}/model`);
+      const model = await response.json() as { package_id: string; acceptance_status: string; results: Array<{ record: { result_id: string }; status: string }>; phase_results: Array<{ phase_id: string }> };
+      expect(response.status).toBe(200);
+      expect(model.package_id).toBe("save-outcome");
+      expect(model.acceptance_status).toBe("accepted");
+      expect(model.results.map((result) => [result.record.result_id, result.status])).toEqual([["result.recovery", "current"]]);
+      expect(model.phase_results.map((phase) => phase.phase_id)).toEqual(["phase.save-outcome"]);
+    } finally {
+      await freshRuntime.close();
     }
   });
 

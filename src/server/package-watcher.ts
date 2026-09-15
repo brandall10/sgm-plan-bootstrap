@@ -75,6 +75,10 @@ export class PackageWatcher {
     // refreshes the same runtime state/event stream. Never watch blobs or
     // descriptors, which are immutable implementation details of the store.
     paths.add(join(this.loadOptions.packageRoot, ".plan-package", "acceptances"));
+    // Result records are also append-only runtime inputs. Watching only this
+    // directory keeps record publication visible without treating blob or
+    // snapshot implementation details as package edits.
+    paths.add(join(this.loadOptions.packageRoot, ".plan-package", "results"));
 
     const candidate = this.store.getCurrentCandidate();
     for (const file of candidate?.plan.files ?? []) {

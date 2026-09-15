@@ -1,8 +1,8 @@
 # SGM Plan Package
 
 A small local viewer for saved Plan Packages. It renders plans, preserves exact
-snapshot bytes across edits and restarts, and supports explicit acceptance
-records. It runs locally; no hosted service or account is required.
+snapshot bytes across edits and restarts, and supports explicit acceptance and
+result records. It runs locally; no hosted service or account is required.
 
 ## Quick start
 
@@ -34,15 +34,27 @@ npm run publish -- --package <package-directory>
 The runtime creates an ignored `.plan-package/` directory beside the selected
 package for immutable snapshot descriptors and retained bytes. Record an
 authorized acceptance only for a concrete snapshot with the explicit command
-documented in [the package format guide](docs/package-format.md#durable-snapshots-and-acceptance):
+documented in [the package history guide](docs/package/package-history.md#durable-snapshots-and-acceptance):
 
 ```sh
 npm run accept -- ...
 ```
 
+Execution observations are separate from proposal bytes. Record one against an
+exact snapshot and phase with `npm run record-result`; pass the complete
+versioned record as a JSON object through `--record-file`. The runtime exposes
+verified current and historical records at `/api/results` and `/api/history`.
+
 ## Documentation
 
-- [Package format and runtime usage](docs/package-format.md)
+These Markdown guides are explanatory references; the runtime does not load
+them. Read the format guide while authoring or publishing `plan.json`, the
+history guide when accepting or recording results, and the runtime guide when
+launching, reviewing, or troubleshooting the viewer.
+
+- [Package format and publication](docs/package/package-format.md)
+- [Package history, acceptance, and results](docs/package/package-history.md)
+- [Local runtime and viewer](docs/package/runtime-and-viewer.md)
 - [Architecture and boundaries](docs/architecture.md)
 - [Full design specifications](docs/specs/)
 - [Current roadmap and state](project_status.md)

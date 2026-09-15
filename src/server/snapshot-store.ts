@@ -3,9 +3,14 @@ import { link, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promi
 import { join, resolve } from "node:path";
 
 import { contentIdInput } from "../core/content-id.js";
-import { errorDiagnostic, hasErrors, warningDiagnostic, type Diagnostic } from "../core/diagnostics.js";
-import { isSha256, validatePlanPackage, type PlanPackage } from "../core/package.js";
+import { errorDiagnostic, hasErrors, isDiagnostic, warningDiagnostic, type Diagnostic } from "../core/diagnostics.js";
+import { isSha256, isValidIdentifier, validatePlanPackage, type PlanPackage } from "../core/package.js";
 import type { ResolvedFile } from "../core/resolve.js";
+import {
+  resultRecordComparable,
+  validateResultRecord,
+  type ResultRecord,
+} from "../core/result.js";
 import {
   acceptanceRecordComparable,
   isSnapshotId,
@@ -34,7 +39,7 @@ export interface SnapshotCapture {
 export interface SnapshotStoreOptions {
   root: string;
   /** Test seam for read-only/full-disk and interrupted-write scenarios. */
-  beforeWrite?: (path: string, kind: "blob" | "descriptor" | "acceptance") => void | Promise<void>;
+  beforeWrite?: (path: string, kind: "blob" | "descriptor" | "acceptance" | "result") => void | Promise<void>;
 }
 
 export interface StoredSnapshot {
@@ -71,6 +76,26 @@ export interface AcceptanceHistoryResult {
 
 export interface SnapshotHistoryResult {
   snapshots: StoredSnapshot[];
+  diagnostics: Diagnostic[];
+}
+
+export interface ResultOpenResult {
+  result: ResultRecord | null;
+  diagnostics: Diagnostic[];
+}
+
+export interface ResultWriteResult {
+  result: ResultRecord | null;
+  created: boolean;
+  idempotent: boolean;
+  diagnostics: Diagnostic[];
+}
+
+export interface ResultHistoryResult {
+  /** Valid records in deterministic recorded_at/result_id order, including superseded history. */
+  records: ResultRecord[];
+  /** Records not superseded by another valid record in this store. */
+  current: ResultRecord[];
   diagnostics: Diagnostic[];
 }
 
@@ -117,6 +142,37 @@ function fileEntryMatchesPlan(entry: SnapshotFileEntry, planFile: PlanPackage["f
     && entry.media_type === planFile.media_type;
 }
 
+function packageItemIds(plan: PlanPackage): Set<string> {
+  return new Set([
+    plan.id,
+    ...plan.constraints.map((item) => item.id),
+    ...plan.phases.flatMap((phase) => [
+      phase.id,
+      ...(phase.tasks ?? []).map((task) => task.id),
+      ...phase.acceptance_criteria.map((criterion) => criterion.id),
+    ]),
+    ...plan.references.map((item) => item.id),
+    ...plan.decisions.map((item) => item.id),
+    ...plan.questions.map((item) => item.id),
+    ...plan.assets.map((item) => item.id),
+    ...plan.files.map((item) => item.id),
+  ]);
+}
+
+function resultRelatedItemIds(record: ResultRecord): string[] {
+  return [
+    ...record.related_item_ids,
+    ...record.intended_work.flatMap((item) => item.related_item_ids),
+    ...record.observed_facts.flatMap((item) => item.related_item_ids),
+    ...record.inferences.flatMap((item) => item.related_item_ids),
+    ...record.unverified_claims.flatMap((item) => item.related_item_ids),
+    ...record.produced_interfaces.flatMap((item) => item.related_item_ids),
+    ...record.deviations.flatMap((item) => item.related_item_ids),
+    ...record.unresolved_findings.flatMap((item) => item.related_item_ids),
+    ...record.continuation_notes.flatMap((item) => item.related_item_ids),
+  ];
+}
+
 function requiredSnapshotFileIds(plan: PlanPackage): Set<string> {
   const required = new Set(plan.files.filter((file) => file.required).map((file) => file.id));
   for (const reference of plan.references) {
@@ -151,7 +207,11 @@ export class SnapshotStore {
     return join(this.root, "acceptances", `${recordId}.json`);
   }
 
-  private async writeExclusive(path: string, bytes: Uint8Array, kind: "blob" | "descriptor" | "acceptance"): Promise<void> {
+  private resultPath(resultId: string): string {
+    return join(this.root, "results", `${resultId}.json`);
+  }
+
+  private async writeExclusive(path: string, bytes: Uint8Array, kind: "blob" | "descriptor" | "acceptance" | "result"): Promise<void> {
     await this.beforeWrite?.(path, kind);
     await mkdir(resolve(path, ".."), { recursive: true });
     const temporaryPath = `${path}.tmp-${process.pid}-${randomBytes(8).toString("hex")}`;
@@ -410,6 +470,138 @@ export class SnapshotStore {
     return { snapshots, diagnostics };
   }
 
+  private resultSnapshotDiagnostics(record: ResultRecord, snapshot: StoredSnapshot): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (snapshot.snapshotId !== record.snapshot_id) {
+      diagnostics.push(errorDiagnostic("result-snapshot-mismatch", "Result snapshot_id does not match the opened snapshot.", "snapshot_id", record.result_id));
+    }
+    if (snapshot.packageId !== record.package_id) {
+      diagnostics.push(errorDiagnostic("result-package-mismatch", "Result package_id does not match the referenced snapshot.", "package_id", record.result_id));
+    }
+    if (!snapshot.plan.phases.some((phase) => phase.id === record.phase_id)) {
+      diagnostics.push(errorDiagnostic("result-phase-unavailable", `Result phase '${record.phase_id}' is not declared by the retained snapshot.`, "phase_id", record.result_id));
+    }
+    const itemIds = packageItemIds(snapshot.plan);
+    for (const [index, itemId] of resultRelatedItemIds(record).entries()) {
+      if (!itemIds.has(itemId)) diagnostics.push(errorDiagnostic("result-related-item-unavailable", `Result refers to undeclared package item '${itemId}'.`, `related_item_ids[${index}]`, record.result_id));
+    }
+    return diagnostics;
+  }
+
+  async openResult(resultId: string): Promise<ResultOpenResult> {
+    if (!isValidIdentifier(resultId)) {
+      return { result: null, diagnostics: [errorDiagnostic("invalid-result-id", "Result ID must be a valid package identifier.", "result_id", resultId)] };
+    }
+    const path = this.resultPath(resultId);
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await readFile(path));
+    } catch {
+      return { result: null, diagnostics: [errorDiagnostic("result-unavailable", `Result '${resultId}' is unavailable.`, "result_id", resultId)] };
+    }
+    const parsed = parseJson(bytes, path);
+    if (typeof parsed !== "object" || parsed === null || "code" in parsed) {
+      const parseDiagnostic = isDiagnostic(parsed)
+        ? parsed
+        : errorDiagnostic("malformed-json", `Stored result at '${path}' is not a JSON object.`, path, resultId);
+      return {
+        result: null,
+        diagnostics: [errorDiagnostic("result-record-corrupt", `Result '${resultId}' is not valid JSON.`, path, resultId), parseDiagnostic],
+      };
+    }
+    const validation = validateResultRecord(parsed);
+    const diagnostics = [...validation.diagnostics];
+    if (!validation.value || !validation.valid) return { result: null, diagnostics };
+    if (validation.value.result_id !== resultId) {
+      diagnostics.push(errorDiagnostic("result-id-mismatch", "Result record identity does not match its requested path.", "result_id", resultId));
+      return { result: null, diagnostics };
+    }
+    const snapshot = await this.open(validation.value.snapshot_id);
+    diagnostics.push(...snapshot.diagnostics);
+    if (!snapshot.snapshot) {
+      diagnostics.push(errorDiagnostic("result-snapshot-unavailable", `Result '${resultId}' cannot resolve its retained snapshot.`, "snapshot_id", resultId));
+      return { result: null, diagnostics };
+    }
+    diagnostics.push(...this.resultSnapshotDiagnostics(validation.value, snapshot.snapshot));
+    if (hasErrors(diagnostics)) return { result: null, diagnostics };
+    return { result: validation.value, diagnostics };
+  }
+
+  async listResults(packageId?: string, snapshotId?: string, phaseId?: string): Promise<ResultHistoryResult> {
+    const diagnostics: Diagnostic[] = [];
+    const records: ResultRecord[] = [];
+    let names: string[];
+    try {
+      names = await readdir(join(this.root, "results"));
+    } catch {
+      return { records, current: [], diagnostics };
+    }
+    for (const name of names.filter((candidate) => candidate.endsWith(".json")).sort()) {
+      const resultId = name.slice(0, -".json".length);
+      const opened = await this.openResult(resultId);
+      diagnostics.push(...opened.diagnostics);
+      if (!opened.result) continue;
+      if (records.some((record) => record.result_id === opened.result?.result_id)) {
+        diagnostics.push(errorDiagnostic("duplicate-result-id", `Result ID '${opened.result.result_id}' is declared more than once.`, `results.${opened.result.result_id}`, opened.result.result_id));
+        continue;
+      }
+      if (packageId && opened.result.package_id !== packageId) continue;
+      if (snapshotId && opened.result.snapshot_id !== snapshotId) continue;
+      if (phaseId && opened.result.phase_id !== phaseId) continue;
+      records.push(opened.result);
+    }
+    records.sort((left, right) => left.recorded_at.localeCompare(right.recorded_at) || left.result_id.localeCompare(right.result_id));
+
+    const byId = new Map(records.map((record) => [record.result_id, record]));
+    const invalid = new Set<string>();
+    for (const record of records) {
+      for (const supersededId of record.supersedes) {
+        const target = byId.get(supersededId);
+        if (!target) {
+          diagnostics.push(errorDiagnostic("superseded-result-unavailable", `Result '${record.result_id}' supersedes unavailable result '${supersededId}'.`, `results.${record.result_id}.supersedes`, record.result_id));
+          invalid.add(record.result_id);
+          continue;
+        }
+        if (target.package_id !== record.package_id || target.snapshot_id !== record.snapshot_id || target.phase_id !== record.phase_id || target.activity !== record.activity) {
+          diagnostics.push(errorDiagnostic("superseded-result-mismatch", `Result '${record.result_id}' can only supersede a result for the same package, snapshot, phase, and activity.`, `results.${record.result_id}.supersedes`, record.result_id));
+          invalid.add(record.result_id);
+        }
+      }
+    }
+    const visiting: string[] = [];
+    const visited = new Set<string>();
+    const reportedCycles = new Set<string>();
+    const visit = (resultId: string): void => {
+      const cycleIndex = visiting.indexOf(resultId);
+      if (cycleIndex >= 0) {
+        const cycle = [...visiting.slice(cycleIndex), resultId];
+        const cycleKey = [...new Set(cycle)].sort().join(",");
+        if (!reportedCycles.has(cycleKey)) {
+          diagnostics.push(errorDiagnostic("result-supersession-cycle", `Result supersession cycle detected: ${cycle.join(" -> ")}.`, `results.${resultId}.supersedes`, resultId));
+          for (const member of cycle) invalid.add(member);
+          reportedCycles.add(cycleKey);
+        }
+        return;
+      }
+      if (visited.has(resultId) || invalid.has(resultId)) return;
+      const record = byId.get(resultId);
+      if (!record) return;
+      visiting.push(resultId);
+      for (const supersededId of record.supersedes) visit(supersededId);
+      visiting.pop();
+      visited.add(resultId);
+    };
+    for (const record of records) visit(record.result_id);
+
+    const validRecords = records.filter((record) => !invalid.has(record.result_id));
+    const superseded = new Set(validRecords.flatMap((record) => record.supersedes));
+    return {
+      records: validRecords,
+      current: validRecords.filter((record) => !superseded.has(record.result_id)),
+      diagnostics,
+    };
+  }
+
   async recordAcceptance(record: AcceptanceRecord): Promise<AcceptanceWriteResult> {
     const validation = validateAcceptanceRecord(record);
     if (!validation.valid || !validation.value) return { record: null, created: false, idempotent: false, diagnostics: validation.diagnostics };
@@ -450,5 +642,93 @@ export class SnapshotStore {
         diagnostics: [errorDiagnostic("acceptance-record-write-failed", error instanceof Error ? error.message : "Acceptance record could not be written.", path, record.record_id)],
       };
     }
+  }
+
+  async recordResult(record: ResultRecord): Promise<ResultWriteResult> {
+    const validation = validateResultRecord(record);
+    if (!validation.valid || !validation.value) return { result: null, created: false, idempotent: false, diagnostics: validation.diagnostics };
+    const normalized = validation.value;
+    const snapshotResult = await this.open(normalized.snapshot_id);
+    if (!snapshotResult.snapshot) {
+      return { result: null, created: false, idempotent: false, diagnostics: snapshotResult.diagnostics };
+    }
+    const snapshotDiagnostics = this.resultSnapshotDiagnostics(normalized, snapshotResult.snapshot);
+    if (hasErrors(snapshotDiagnostics)) return { result: null, created: false, idempotent: false, diagnostics: [...validation.diagnostics, ...snapshotDiagnostics] };
+
+    const existingPath = this.resultPath(normalized.result_id);
+    try {
+      const existing = new Uint8Array(await readFile(existingPath));
+      const parsed = parseJson(existing, existingPath);
+      if (typeof parsed !== "object" || parsed === null || "code" in parsed) {
+        const parseDiagnostic = isDiagnostic(parsed)
+          ? parsed
+          : errorDiagnostic("malformed-json", `Stored result at '${existingPath}' is not a JSON object.`, existingPath, normalized.result_id);
+        return { result: null, created: false, idempotent: false, diagnostics: [errorDiagnostic("result-record-corrupt", `Result '${normalized.result_id}' already exists but is corrupt.`, existingPath, normalized.result_id), parseDiagnostic] };
+      }
+      const existingValidation = validateResultRecord(parsed);
+      if (!existingValidation.valid || !existingValidation.value) return { result: null, created: false, idempotent: false, diagnostics: existingValidation.diagnostics };
+      if (resultRecordComparable(existingValidation.value) === resultRecordComparable(normalized)) {
+        return { result: existingValidation.value, created: false, idempotent: true, diagnostics: [...validation.diagnostics, ...existingValidation.diagnostics] };
+      }
+      return { result: null, created: false, idempotent: false, diagnostics: [errorDiagnostic("result-record-conflict", `Result ID '${normalized.result_id}' already contains different input.`, "result_id", normalized.result_id)] };
+    } catch (error) {
+      if (!isAlreadyExists(error) && typeof error === "object" && error !== null && "code" in error && error.code !== "ENOENT") {
+        return { result: null, created: false, idempotent: false, diagnostics: [errorDiagnostic("result-record-read-failed", `Result '${normalized.result_id}' could not be read.`, existingPath, normalized.result_id)] };
+      }
+    }
+
+    if (normalized.supersedes.length > 0) {
+      const history = await this.listResults(normalized.package_id, normalized.snapshot_id, normalized.phase_id);
+      const targets = new Map(history.records.map((candidate) => [candidate.result_id, candidate]));
+      const missing = normalized.supersedes.find((supersededId) => !targets.has(supersededId));
+      if (missing) {
+        return {
+          result: null,
+          created: false,
+          idempotent: false,
+          diagnostics: [errorDiagnostic("superseded-result-unavailable", `Result '${normalized.result_id}' supersedes unavailable result '${missing}'.`, "supersedes", normalized.result_id)],
+        };
+      }
+    }
+
+    try {
+      await this.writeExclusive(existingPath, serialize(normalized), "result");
+    } catch (error) {
+      // A concurrent writer may have published the same immutable input with
+      // a different generated timestamp between our initial read and this
+      // link. Re-read the winner before reporting a write failure.
+      try {
+        const concurrent = new Uint8Array(await readFile(existingPath));
+        const parsed = parseJson(concurrent, existingPath);
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) && !("code" in parsed)) {
+          const concurrentValidation = validateResultRecord(parsed);
+          if (concurrentValidation.valid && concurrentValidation.value && resultRecordComparable(concurrentValidation.value) === resultRecordComparable(normalized)) {
+            return { result: concurrentValidation.value, created: false, idempotent: true, diagnostics: [...validation.diagnostics, ...concurrentValidation.diagnostics] };
+          }
+          if (concurrentValidation.valid && concurrentValidation.value) {
+            return { result: null, created: false, idempotent: false, diagnostics: [errorDiagnostic("result-record-conflict", `Result ID '${normalized.result_id}' already contains different input.`, "result_id", normalized.result_id)] };
+          }
+        }
+      } catch {
+        // Preserve the original write diagnostic when the concurrent file is
+        // not readable or is itself malformed.
+      }
+      return {
+        result: null,
+        created: false,
+        idempotent: false,
+        diagnostics: [errorDiagnostic("result-record-write-failed", error instanceof Error ? error.message : "Result record could not be written.", existingPath, normalized.result_id)],
+      };
+    }
+    const reopened = await this.openResult(normalized.result_id);
+    if (!reopened.result) {
+      return {
+        result: null,
+        created: false,
+        idempotent: false,
+        diagnostics: [errorDiagnostic("result-record-verification-failed", `Result '${normalized.result_id}' could not be verified after publication.`, existingPath, normalized.result_id), ...reopened.diagnostics],
+      };
+    }
+    return { result: reopened.result, created: true, idempotent: false, diagnostics: [...validation.diagnostics, ...reopened.diagnostics] };
   }
 }

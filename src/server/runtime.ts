@@ -195,6 +195,26 @@ async function handleRequest(
     });
     return true;
   }
+  if (url.pathname === "/api/results") {
+    const history = await store.getHistory(reloadOptions);
+    writeJson(response, 200, {
+      package_id: history.package_id,
+      records: history.results,
+      phase_results: history.phase_results,
+      diagnostics: history.result_diagnostics,
+    });
+    return true;
+  }
+  if (parts.length === 3 && parts[0] === "api" && parts[1] === "results") {
+    const resultId = pathPart(parts[2] ?? "");
+    if (!resultId) {
+      notFound(response, "Result ID is invalid.", url.pathname);
+      return true;
+    }
+    const result = await store.getResult(reloadOptions, resultId);
+    writeJson(response, result.result ? 200 : 404, result);
+    return true;
+  }
   if (url.pathname === "/api/history" || url.pathname === "/api/snapshots") {
     writeJson(response, 200, await store.getHistory(reloadOptions));
     return true;
