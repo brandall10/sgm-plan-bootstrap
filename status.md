@@ -4,9 +4,9 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 P3 is complete and integrated in `main` via [PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10) at `31c26ad`. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9).
+State: W03 P3 is complete and integrated in `main` via [PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10) at `31c26ad`. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9). W03 P4 is implemented, verified, and delivered via [PR #11](https://github.com/brandall10/sgm-plan-bootstrap/pull/11) at `6bc3f9c`; review is pending.
 
-Next action: Select W03 P4 via `status-next`.
+Next action: Review and accept [PR #11](https://github.com/brandall10/sgm-plan-bootstrap/pull/11), then resume with `status-accept` for integration and cleanup.
 
 ## P1 — Model declared obligations and deterministic selections
 
@@ -30,7 +30,7 @@ Next action: Select W03 P4 via `status-next`.
 
 ## P4 — Demonstrate fresh recovery and inspectable product results
 
-- [ ] P4-T1 — Add accessible viewer result panels from the read-only runtime projection.
-- [ ] P4-T2 — Demonstrate fresh context/result recovery and viewer/CLI agreement with clearly labelled fixtures.
-- [ ] P4-T3 — Document operations and measure matched full versus selected context.
-- [ ] P4-T4 — Independently verify selection, stale evidence, unavailable inputs, and graph-free references.
+- [x] P4-T1 — Add accessible viewer result panels from the read-only runtime projection.
+- [x] P4-T2 — Demonstrate fresh context/result recovery and viewer/CLI agreement with clearly labelled fixtures.
+- [x] P4-T3 — Document operations and measure matched full versus selected context.
+- [x] P4-T4 — Independently verify selection, stale evidence, unavailable inputs, and graph-free references.

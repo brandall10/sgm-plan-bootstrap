@@ -83,6 +83,12 @@ available as history and are not reported as current. The read-only runtime
 projection is available at `/api/results`, `/api/history`, and the per-record
 route `/api/results/<result-id>`.
 
+The viewer's overview and phase views consume the same projection through their
+Execution results panels. Current and superseded records, illustrative fixture
+labels, evidence status/locators, limitations, and review/integration facts are
+rendered as separate fields. A panel with no records explicitly reports that
+there is no retained evidence; it does not label the phase successful.
+
 ## History and comparison projection
 
 The viewer's history projection is available at `/api/history` (also exposed as

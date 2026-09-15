@@ -69,6 +69,11 @@ when the complete Markdown output exceeds a character budget. Exit status `1`
 means the requested handoff is unavailable, blocked, unaccepted, or incomplete;
 status `2` is reserved for command-line errors.
 
+The viewer's overview and phase views include the same retained result history,
+with evidence, limitations, and review/integration facts kept distinct. See
+the [focused context measurement](docs/package/context-measurement.md) for the
+bounded local comparison used by the recovery demonstration.
+
 ## Documentation
 
 These Markdown guides are explanatory references; the runtime does not load
