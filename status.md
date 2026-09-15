@@ -4,20 +4,20 @@ Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/p
 
 Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: Accepted and active; W04 P1 is in progress at its target-package acceptance gate.
+State: Accepted and active; W04 P1 is implemented and verified, with target PR delivery blocked by the missing remote.
 
 Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-Next action: Explicitly accept target snapshot `34fcda850f1302363c4938a13392fdd71a98823a18ac8b2fae2eba86d800a0c5`, then continue P1 implementation and verification.
+Next action: Configure or authorize a remote for `../sgm-shift-handoff-trial`, then push `codex/w04-p1-handoff` and create its PR before starting P2.
 
-Progress: Target `../sgm-shift-handoff-trial` is initialized at `684818f`; its provider-published package is ready for explicit acceptance. P1-T1 remains unchecked until that acceptance record exists.
+Progress: Target `../sgm-shift-handoff-trial` is at `4cf38d6e6485310a42d6755814f65a14b57f6fcd`; snapshot acceptance and result `result.synthetic-shift-handoff-p1` are retained. PR delivery remains unresolved because no target remote exists.
 
 ## P1 — Record a durable handoff through attributed phase context
 
-- [ ] P1-T1 — Initialize `../sgm-shift-handoff-trial`, define its two-phase package and cross-phase consumer criterion, then publish and obtain explicit acceptance of the concrete target snapshot.
-- [ ] P1-T2 — Add a target-local adapter that forwards explicit context/result requests to a pinned provider checkout and rejects implicit or invalid handoffs.
-- [ ] P1-T3 — Implement validated, atomic handoff persistence with explicit outcomes, deterministic actions, and an open-handoff command.
-- [ ] P1-T4 — Verify the real provider invocation, cross-phase criterion, provider revision, failure paths, and fresh process; record the attributable P1 result.
+- [x] P1-T1 — Initialize `../sgm-shift-handoff-trial`, define its two-phase package and cross-phase consumer criterion, then publish and obtain explicit acceptance of the concrete target snapshot.
+- [x] P1-T2 — Add a target-local adapter that forwards explicit context/result requests to a pinned provider checkout and rejects implicit or invalid handoffs.
+- [x] P1-T3 — Implement validated, atomic handoff persistence with explicit outcomes, deterministic actions, and an open-handoff command.
+- [x] P1-T4 — Verify the real provider invocation, cross-phase criterion, provider revision, failure paths, and fresh process; record the attributable P1 result.
 
 ## P2 — Freshly recover, complete, and independently verify the handoff
 
