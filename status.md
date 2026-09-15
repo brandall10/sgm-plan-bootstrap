@@ -4,11 +4,13 @@ Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/p
 
 Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: Accepted and active; execution not started.
+State: Accepted and active; W04 P1 is in progress at its target-package acceptance gate.
 
 Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-Next action: Run `status-next` for P1 — Record a durable handoff through attributed phase context.
+Next action: Explicitly accept target snapshot `34fcda850f1302363c4938a13392fdd71a98823a18ac8b2fae2eba86d800a0c5`, then continue P1 implementation and verification.
+
+Progress: Target `../sgm-shift-handoff-trial` is initialized at `684818f`; its provider-published package is ready for explicit acceptance. P1-T1 remains unchecked until that acceptance record exists.
 
 ## P1 — Record a durable handoff through attributed phase context
 
