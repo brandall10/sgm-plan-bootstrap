@@ -4,9 +4,9 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 P2 is implemented and verified; [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9) is pending review.
+State: W03 P2 is implemented, verified, and approved; [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9) is pending integration.
 
-Next action: Review and accept [W03 P2 PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9); after integration, select P3.
+Next action: Merge and synchronize [W03 P2 PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9); after integration, select P3.
 
 ## P1 — Model declared obligations and deterministic selections
 
