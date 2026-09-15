@@ -4,9 +4,9 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 P2 is implemented, verified, and approved; [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9) is pending integration.
+State: W03 P3 is implemented and verified on the phase branch; its PR is pending review. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9).
 
-Next action: Merge and synchronize [W03 P2 PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9); after integration, select P3.
+Next action: Review and accept the W03 P3 phase PR; after integration, select P4.
 
 ## P1 — Model declared obligations and deterministic selections
 
@@ -23,10 +23,10 @@ Next action: Merge and synchronize [W03 P2 PR #9](https://github.com/brandall10/
 
 ## P3 — Deliver attributable CLI context and expansion
 
-- [ ] P3-T1 — Implement strict local command parsing, snapshot/phase/activity selection, Markdown output, and provenance.
-- [ ] P3-T2 — Implement accepted `current` and readiness-aware `context` operations without draft fallback.
-- [ ] P3-T3 — Implement same-snapshot expansion, retained asset inspection, and explicit over-budget output.
-- [ ] P3-T4 — Verify CLI behavior for acceptance state, pinned history, errors, budget, expansion, and isolation.
+- [x] P3-T1 — Implement strict local command parsing, snapshot/phase/activity selection, Markdown output, and provenance.
+- [x] P3-T2 — Implement accepted `current` and readiness-aware `context` operations without draft fallback.
+- [x] P3-T3 — Implement same-snapshot expansion, retained asset inspection, and explicit over-budget output.
+- [x] P3-T4 — Verify CLI behavior for acceptance state, pinned history, errors, budget, expansion, and isolation.
 
 ## P4 — Demonstrate fresh recovery and inspectable product results
 
