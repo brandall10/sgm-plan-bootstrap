@@ -1,36 +1,27 @@
-# W03 — Retrieve phase context and predecessor results
+# W04 — Exercise the workflow through a synthetic shift-handoff trial
 
-Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
+Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/plan.md)
 
-Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
+Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: W03 P4 is complete and integrated in `main` via [PR #11](https://github.com/brandall10/sgm-plan-bootstrap/pull/11) at `1bc7fa8`. W03 P3 is complete and integrated in `main` via [PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10) at `31c26ad`. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9).
+State: Accepted and active; execution not started.
 
-Next action: Select W04 via `status-next`; no W04 plan is active.
+Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-## P1 — Model declared obligations and deterministic selections
+Next action: Run `status-next` for P1 — Record a durable handoff through attributed phase context.
 
-- [x] P1-T1 — Extend the package contract with versioned tasks, criterion applicability, capability validation, and compatibility diagnostics.
-- [x] P1-T2 — Add a pure deterministic context-selection model with governing/expandable material and readiness blockers.
-- [x] P1-T3 — Verify consumer obligations, activity filtering, questions, invalid relationships, and v1 compatibility.
+## P1 — Record a durable handoff through attributed phase context
 
-## P2 — Retain phase outcomes independently of proposal bytes
+- [ ] P1-T1 — Initialize `../sgm-shift-handoff-trial`, define its two-phase package and cross-phase consumer criterion, then publish and obtain explicit acceptance of the concrete target snapshot.
+- [ ] P1-T2 — Add a target-local adapter that forwards explicit context/result requests to a pinned provider checkout and rejects implicit or invalid handoffs.
+- [ ] P1-T3 — Implement validated, atomic handoff persistence with explicit outcomes, deterministic actions, and an open-handoff command.
+- [ ] P1-T4 — Verify the real provider invocation, cross-phase criterion, provider revision, failure paths, and fresh process; record the attributable P1 result.
 
-- [x] P2-T1 — Define and validate versioned, attributable result records and statement dispositions.
-- [x] P2-T2 — Add atomic, verified result storage with idempotency, conflict, retention, and corruption behavior.
-- [x] P2-T3 — Provide explicit result recording and read-only runtime/history projections.
-- [x] P2-T4 — Verify retained results across restart, invalid records, mismatches, stale evidence, and illustrative fixtures.
+## P2 — Freshly recover, complete, and independently verify the handoff
 
-## P3 — Deliver attributable CLI context and expansion
+Depends on P1's accepted package snapshot, persisted interface/result, and application record.
 
-- [x] P3-T1 — Implement strict local command parsing, snapshot/phase/activity selection, Markdown output, and provenance.
-- [x] P3-T2 — Implement accepted `current` and readiness-aware `context` operations without draft fallback.
-- [x] P3-T3 — Implement same-snapshot expansion, retained asset inspection, and explicit over-budget output.
-- [x] P3-T4 — Verify CLI behavior for acceptance state, pinned history, errors, budget, expansion, and isolation.
-
-## P4 — Demonstrate fresh recovery and inspectable product results
-
-- [x] P4-T1 — Add accessible viewer result panels from the read-only runtime projection.
-- [x] P4-T2 — Demonstrate fresh context/result recovery and viewer/CLI agreement with clearly labelled fixtures.
-- [x] P4-T3 — Document operations and measure matched full versus selected context.
-- [x] P4-T4 — Independently verify selection, stale evidence, unavailable inputs, and graph-free references.
+- [ ] P2-T1 — From a fresh target worktree/session, retrieve explicit P2 context and prove it identifies P1's recorded interface without draft or copied-chat substitution.
+- [ ] P2-T2 — Implement deterministic, atomic resume/close behavior with explicit unavailable and conflict outcomes.
+- [ ] P2-T3 — Independently verify every P2 criterion against its actual revision; supersede stale evidence only after an actual repair.
+- [ ] P2-T4 — Recover retained P1/P2 context and results through `--store`, then record bounded measurements and limitations without transcripts or screenshots.
