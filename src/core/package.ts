@@ -6,6 +6,7 @@ import {
 
 export const SUPPORTED_FORMAT = "plan-package" as const;
 export const SUPPORTED_FORMAT_VERSION = "1.0" as const;
+export const CONTEXT_SELECTION_CAPABILITY = "context-selection.v1" as const;
 
 export const SUPPORTED_CAPABILITIES = new Set([
   "inline-phases.v1",
@@ -14,6 +15,7 @@ export const SUPPORTED_CAPABILITIES = new Set([
   "candidate-assets.v1",
   "safe-markdown.v1",
   "sandboxed-html.v1",
+  CONTEXT_SELECTION_CAPABILITY,
 ]);
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
@@ -32,11 +34,13 @@ const ASSET_FORMATS = new Set([
 ]);
 const ASSET_AUTHORITIES = new Set(["authoritative", "illustrative", "evidence"]);
 const QUESTION_STATUSES = new Set(["open", "answered", "deferred"]);
+const TASK_ACTIVITIES = new Set(["implement", "verify"]);
 const REFERENCE_KINDS = new Set(["local", "external"]);
 const ROOT_KINDS = new Set(["package", "repository"]);
 
 export type PackageRootKind = "package" | "repository";
 export type AssetAuthority = "authoritative" | "illustrative" | "evidence";
+export type ContextActivity = "implement" | "verify";
 export type AssetFormat =
   | "css"
   | "html"
@@ -61,6 +65,14 @@ export interface Constraint {
 export interface AcceptanceCriterion {
   id: string;
   text_md: string;
+  /** Omitted means that the criterion applies to its owning phase. */
+  applies_to?: string[];
+}
+
+export interface PhaseTask {
+  id: string;
+  text_md: string;
+  activity: ContextActivity;
 }
 
 export interface Phase {
@@ -70,6 +82,8 @@ export interface Phase {
   objective_md: string;
   approach_md: string;
   acceptance_criteria: AcceptanceCriterion[];
+  /** Optional for v1 compatibility; context-capable packages must declare tasks. */
+  tasks?: PhaseTask[];
 }
 
 export interface PackageFile {
@@ -306,6 +320,38 @@ function parseConstraints(
   return constraints;
 }
 
+function parseTasks(
+  value: unknown,
+  ids: Map<string, string>,
+  path: string,
+  diagnostics: Diagnostic[],
+): PhaseTask[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    diagnostics.push(errorDiagnostic("invalid-array", "tasks must be an array.", path));
+    return null;
+  }
+  const tasks: PhaseTask[] = [];
+  for (const [index, entry] of value.entries()) {
+    const taskPath = `${path}[${index}]`;
+    if (!isRecord(entry)) {
+      diagnostics.push(errorDiagnostic("invalid-object", "Task declaration must be an object.", taskPath));
+      continue;
+    }
+    const id = requiredString(entry, "id", taskPath, diagnostics);
+    const text_md = requiredString(entry, "text_md", taskPath, diagnostics);
+    const activity = requiredString(entry, "activity", taskPath, diagnostics);
+    addId(id, `${taskPath}.id`, ids, diagnostics);
+    if (activity && !TASK_ACTIVITIES.has(activity)) {
+      diagnostics.push(errorDiagnostic("invalid-task-activity", `activity must be implement or verify, received '${activity}'.`, `${taskPath}.activity`, id ?? undefined));
+    }
+    if (id && text_md && activity && TASK_ACTIVITIES.has(activity)) {
+      tasks.push({ id, text_md, activity: activity as ContextActivity });
+    }
+  }
+  return tasks;
+}
+
 function parsePhases(
   value: unknown,
   ids: Map<string, string>,
@@ -327,6 +373,7 @@ function parsePhases(
     const depends_on = requiredStringArray(entry, "depends_on", path, diagnostics);
     const objective_md = requiredString(entry, "objective_md", path, diagnostics);
     const approach_md = requiredString(entry, "approach_md", path, diagnostics);
+    const tasks = parseTasks(entry["tasks"], ids, `${path}.tasks`, diagnostics);
     const criteriaValue = entry["acceptance_criteria"];
     if (!Array.isArray(criteriaValue) || criteriaValue.length === 0) {
       diagnostics.push(errorDiagnostic("invalid-criteria", "acceptance_criteria must be a non-empty array.", `${path}.acceptance_criteria`, id ?? undefined));
@@ -341,13 +388,24 @@ function parsePhases(
         }
         const criterionId = requiredString(criterionValue, "id", criterionPath, diagnostics);
         const text_md = requiredString(criterionValue, "text_md", criterionPath, diagnostics);
+        const applies_to = criterionValue["applies_to"] === undefined
+          ? undefined
+          : optionalStringArray(criterionValue, "applies_to", criterionPath, diagnostics);
         addId(criterionId, `${criterionPath}.id`, ids, diagnostics);
-        if (criterionId && text_md) acceptance_criteria.push({ id: criterionId, text_md });
+        if (criterionId && text_md) acceptance_criteria.push({ id: criterionId, text_md, ...(applies_to === undefined ? {} : { applies_to }) });
       }
     }
     addId(id, `${path}.id`, ids, diagnostics);
-    if (id && title && depends_on && objective_md && approach_md) {
-      phases.push({ id, title, depends_on, objective_md, approach_md, acceptance_criteria });
+    if (id && title && depends_on && objective_md && approach_md && tasks) {
+      phases.push({
+        id,
+        title,
+        depends_on,
+        objective_md,
+        approach_md,
+        acceptance_criteria,
+        ...(entry["tasks"] === undefined ? {} : { tasks }),
+      });
     }
   }
   return phases;
@@ -561,6 +619,14 @@ function validateRelationships(
         diagnostics.push(errorDiagnostic("unknown-dependency", `Phase dependency '${dependency}' does not identify a declared phase.`, `phases[${index}].depends_on[${dependencyIndex}]`, phase.id));
       }
     }
+    for (const [criterionIndex, criterion] of phase.acceptance_criteria.entries()) {
+      const appliesTo = criterion.applies_to ?? [phase.id];
+      for (const [targetIndex, target] of appliesTo.entries()) {
+        if (!targetIds.has(target)) {
+          diagnostics.push(errorDiagnostic("unknown-applicability-target", `Criterion applicability target '${target}' is undeclared.`, `phases[${index}].acceptance_criteria[${criterionIndex}].applies_to[${targetIndex}]`, criterion.id));
+        }
+      }
+    }
   }
 
   for (const [index, reference] of plan.references.entries()) {
@@ -617,6 +683,20 @@ function validateRelationships(
     visited.add(phase.id);
   };
   for (const phase of plan.phases) visit(phase, []);
+}
+
+function validateContextCapability(plan: PlanPackage, diagnostics: Diagnostic[]): void {
+  if (!plan.required_capabilities.includes(CONTEXT_SELECTION_CAPABILITY)) return;
+  for (const [index, phase] of plan.phases.entries()) {
+    if (!phase.tasks || phase.tasks.length === 0) {
+      diagnostics.push(errorDiagnostic(
+        "missing-context-tasks",
+        `Context-capable phase '${phase.id}' must declare at least one activity-tagged task.`,
+        `phases[${index}].tasks`,
+        phase.id,
+      ));
+    }
+  }
 }
 
 export function validatePlanPackage(input: unknown): PackageValidationResult {
@@ -676,6 +756,7 @@ export function validatePlanPackage(input: unknown): PackageValidationResult {
       ...(isRecord(input["metadata"]) ? { metadata: input["metadata"] } : {}),
     };
     validateRelationships(plan, diagnostics);
+    validateContextCapability(plan, diagnostics);
     return { valid: !hasErrors(diagnostics), value: plan, diagnostics };
   }
   return { valid: false, value: null, diagnostics };
@@ -685,7 +766,11 @@ export function collectAddressableIds(plan: PlanPackage): Set<string> {
   const ids = new Set<string>([
     plan.id,
     ...plan.constraints.map((constraint) => constraint.id),
-    ...plan.phases.flatMap((phase) => [phase.id, ...phase.acceptance_criteria.map((criterion) => criterion.id)]),
+    ...plan.phases.flatMap((phase) => [
+      phase.id,
+      ...(phase.tasks ?? []).map((task) => task.id),
+      ...phase.acceptance_criteria.map((criterion) => criterion.id),
+    ]),
     ...plan.files.map((file) => file.id),
     ...plan.references.map((reference) => reference.id),
     ...plan.assets.map((asset) => asset.id),

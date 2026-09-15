@@ -12,7 +12,7 @@ readiness.
 | --- | --- |
 | `id`, `title`, `revision`, `state` | Stable identity, human title, positive author revision, and legacy author metadata (`draft`/`accepted`) |
 | `goal_md`, `scope`, `constraints` | Inline Markdown intent, included/excluded boundaries, and shared obligations |
-| `phases` | Stable phase IDs, objective/approach Markdown, `depends_on` phase IDs, and exact `acceptance_criteria` |
+| `phases` | Stable phase IDs, objective/approach Markdown, `depends_on` phase IDs, activity-tagged `tasks`, and exact `acceptance_criteria` |
 | `references` | Local file references or non-fetched HTTP(S) references, with purpose, applicability, and requiredness |
 | `decisions`, `questions` | Resolved choices and open/answered/deferred questions with a blocking flag |
 | `assets` | Selected files with format, purpose, authority, applicability, requiredness, and transitive dependency file IDs |
@@ -20,8 +20,16 @@ readiness.
 | `required_capabilities` | Semantics the reader must understand; unknown required capabilities reject the package |
 | `metadata` | Optional opaque metadata retained by the parsed model and never interpreted as a supported capability |
 
+Packages that require `context-selection.v1` must declare at least one task in
+each phase. A task has a stable `id`, exact `text_md`, and an `activity` of
+`implement` or `verify`. A criterion may declare `applies_to` phase or
+criterion IDs; when omitted, it applies to its owning phase. This lets a
+downstream phase's exact consumer obligation reach a prerequisite without
+pulling the downstream narrative into the prerequisite's focused context.
+
 IDs are globally unique across addressable package items, including phases,
-criteria, files, references, assets, decisions, questions, and constraints.
+tasks, criteria, files, references, assets, decisions, questions, and
+constraints.
 Paths use normalized `/` separators and are relative to the root declared on
 their file entry. Absolute paths, `.`/`..` segments, NUL bytes, and Windows
 backslash paths are rejected. A repository-root entry requires the runtime to

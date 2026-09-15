@@ -4,15 +4,15 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 is accepted and active; execution has not started.
+State: W03 P1 is implemented and verified on the phase branch; review is pending.
 
-Next action: Run `status-next` for W03 P1 — Model declared obligations and deterministic selections.
+Next action: Review and accept the W03 P1 phase PR; do not start P2 until it is integrated.
 
 ## P1 — Model declared obligations and deterministic selections
 
-- [ ] P1-T1 — Extend the package contract with versioned tasks, criterion applicability, capability validation, and compatibility diagnostics.
-- [ ] P1-T2 — Add a pure deterministic context-selection model with governing/expandable material and readiness blockers.
-- [ ] P1-T3 — Verify consumer obligations, activity filtering, questions, invalid relationships, and v1 compatibility.
+- [x] P1-T1 — Extend the package contract with versioned tasks, criterion applicability, capability validation, and compatibility diagnostics.
+- [x] P1-T2 — Add a pure deterministic context-selection model with governing/expandable material and readiness blockers.
+- [x] P1-T3 — Verify consumer obligations, activity filtering, questions, invalid relationships, and v1 compatibility.
 
 ## P2 — Retain phase outcomes independently of proposal bytes
 

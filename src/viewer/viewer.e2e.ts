@@ -158,6 +158,7 @@ test("labels a blocking question and preserves the hierarchy from tablet to narr
 
 test("refreshes complete edits and keeps the last valid revision visible for rejected edits", async ({ page }) => {
   const fixture = await copyFixture("save-outcome");
+  const originalRevision = (JSON.parse(await readFile(join(fixture.packageRoot, "plan.json"), "utf8")) as { revision: number }).revision;
   const runtime = await startRuntime({
     packageRoot: fixture.packageRoot,
     port: 0,
@@ -169,7 +170,7 @@ test("refreshes complete edits and keeps the last valid revision visible for rej
   try {
     await page.goto(`${runtimeUrl(runtime)}/#/packages/save-outcome/items/phase.save-outcome`);
     await expect(page.getByTestId("connection-status")).toContainText("connected");
-    await expect(page.getByTestId("current-revision")).toHaveText("1");
+    await expect(page.getByTestId("current-revision")).toHaveText(String(originalRevision));
     const initialContentId = await page.getByTestId("content-id").innerText();
 
     const manifestPath = join(fixture.packageRoot, "plan.json");
@@ -179,13 +180,13 @@ test("refreshes complete edits and keeps the last valid revision visible for rej
     expect(published.published).toBe(true);
     const publishedManifest = await readFile(manifestPath);
 
-    await expect(page.getByTestId("current-revision")).toHaveText("2", { timeout: 5_000 });
+    await expect(page.getByTestId("current-revision")).toHaveText(String(originalRevision + 1), { timeout: 5_000 });
     await expect(page.getByTestId("content-id")).not.toHaveText(initialContentId);
 
     await writeFile(manifestPath, "{\n");
-    await expect(page.getByTestId("last-valid-notice")).toContainText("last valid revision 2", { timeout: 5_000 });
+    await expect(page.getByTestId("last-valid-notice")).toContainText(`last valid revision ${originalRevision + 1}`, { timeout: 5_000 });
     await expect(page.getByTestId("diagnostics")).toContainText("malformed-json");
-    await expect(page.getByTestId("current-revision")).toHaveText("2");
+    await expect(page.getByTestId("current-revision")).toHaveText(String(originalRevision + 1));
 
     await writeFile(manifestPath, publishedManifest);
     await expect(page.getByTestId("last-valid-notice")).toHaveCount(0, { timeout: 5_000 });
@@ -236,6 +237,7 @@ test("falls back to a surviving phase when a selected item is removed", async ({
 
 test("reconnects after a runtime restart and reloads the current state", async ({ page }) => {
   const fixture = await copyFixture("save-outcome");
+  const originalRevision = (JSON.parse(await readFile(join(fixture.packageRoot, "plan.json"), "utf8")) as { revision: number }).revision;
   const firstRuntime = await startRuntime({
     packageRoot: fixture.packageRoot,
     port: 0,
@@ -260,7 +262,7 @@ test("reconnects after a runtime restart and reloads the current state", async (
       viewerRoot: repositoryRoot,
     });
     await expect(page.getByTestId("connection-status")).toContainText("connected", { timeout: 8_000 });
-    await expect(page.getByTestId("current-revision")).toHaveText("1");
+    await expect(page.getByTestId("current-revision")).toHaveText(String(originalRevision));
     await expect(page.getByRole("heading", { name: "Expose the saved-progress outcome", exact: true }).first()).toBeVisible();
   } finally {
     await page.goto("about:blank");
