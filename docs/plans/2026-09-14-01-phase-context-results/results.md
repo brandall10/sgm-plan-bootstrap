@@ -1,10 +1,8 @@
 # W03 results
-
 Source plan: [W03 — Retrieve phase context and predecessor results](plan.md)
-
-State: W03 P1 implemented, verified, and approved; [PR #8](https://github.com/brandall10/sgm-plan-bootstrap/pull/8) is pending integration.
-
-P1: Added opt-in `context-selection.v1` tasks/applicability semantics and a pure deterministic selector with provenance, expansions, dependency slots, and readiness blockers; updated both illustrative fixtures.
-Validation: `npm test` (52), `npm run test:e2e` (9), `npm run build`, `npm run measure`, `npm run typecheck`, `npm run lint`, and `git diff --check` pass.
-Delivery: `codex/w03-p1-context-selection` HEAD `43b8238`, implementation `0ef2e52`, base `a5667c4`; no merge performed.
-Next: Merge PR #8; after integration, begin P2.
+State: W03 P2 implemented and verified; phase PR delivery is pending review.
+P1: Added opt-in `context-selection.v1` semantics and deterministic selection; integrated by [PR #8](https://github.com/brandall10/sgm-plan-bootstrap/pull/8) at `3389b06`.
+P2: Added validated result records, atomic immutable result history with supersession, explicit `record-result`, runtime projections, and fresh-retention coverage.
+Validation: `npm test` (64), `npm run test:e2e` (9), `npm run build`, `npm run measure`, `npm run typecheck`, `npm run lint`, and `git diff --check` pass.
+Delivery: `codex/w03-p2-result-retention`; PR delivery is pending.
+Next: Review and accept the W03 P2 PR; integrate before beginning P3.

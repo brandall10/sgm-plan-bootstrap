@@ -77,7 +77,9 @@ ignored `.plan-package/` store. The store contains:
 - `snapshots/<full-sha256>.json` — a versioned descriptor containing the exact
   manifest digest, author revision, compatibility content ID, sorted file
   inventory, and explicit optional omissions; and
-- `acceptances/<record-id>.json` — append-only, versioned provenance records.
+- `acceptances/<record-id>.json` — append-only, versioned provenance records; and
+- `results/<result-id>.json` — append-only, versioned observations bound to an
+  exact snapshot, phase, activity, code revision, and evidence set.
 
 Snapshot IDs are full SHA-256 digests over the exact manifest bytes and the
 deterministic captured inventory. Repository-root files and every selected
@@ -106,6 +108,43 @@ selects “latest” implicitly. Reusing a record ID with identical input is
 idempotent (the generated timestamp is not part of the retry identity), while
 conflicting input fails. Acceptance is provenance only: it does not mutate
 `plan.json`, activate execution, or make a blocking question executable.
+
+## Durable result records
+
+Result records retain execution observations independently of the accepted
+proposal. They carry separate statement arrays for intended work, observed
+facts, inferences, and unverified claims, plus produced interfaces, deviations,
+unresolved findings, evidence links, delivery facts, continuation notes, and
+explicit supersession. Every result also names its package, full snapshot ID,
+phase, activity, author, recording time, code revision, relevant environment,
+and related package item IDs. An illustrative result remains visibly
+illustrative; a result record never establishes acceptance, verification, or
+integration by itself.
+
+Record a result only with an explicit snapshot and phase. A JSON input file can
+contain the full result body; the command supplies or overrides its source
+identity and provenance fields:
+
+```sh
+npm run record-result -- \
+  --package examples/save-outcome \
+  --snapshot-id <full-snapshot-sha256> \
+  --phase phase.save-outcome \
+  --activity verify \
+  --record-id result.save-outcome-verify-1 \
+  --author agent:example \
+  --code-revision <git-revision> \
+  --record-file /absolute/path/to/result.json
+```
+
+The store reopens the referenced retained snapshot and validates the phase and
+related item IDs before publishing. Identical retries by result ID are
+idempotent (recorded time is not part of retry identity); different input,
+missing superseded records, corrupt history, mismatched identities, and stale
+or unavailable evidence remain visible diagnostics. Superseded records remain
+available as history and are not reported as current. The read-only runtime
+projection is available at `/api/results`, `/api/history`, and the per-record
+route `/api/results/<result-id>`.
 
 The viewer's history projection is available at `/api/history` (also exposed
 as `/api/snapshots`). It lists verified snapshots, their acceptance records

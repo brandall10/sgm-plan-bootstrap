@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "measure": "tsx src/server/measure-runtime.ts",
     "publish": "tsx src/server/publish-package.ts",
+    "record-result": "tsx src/server/record-result.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"

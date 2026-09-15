@@ -1,8 +1,8 @@
 # SGM Plan Package
 
 A small local viewer for saved Plan Packages. It renders plans, preserves exact
-snapshot bytes across edits and restarts, and supports explicit acceptance
-records. It runs locally; no hosted service or account is required.
+snapshot bytes across edits and restarts, and supports explicit acceptance and
+result records. It runs locally; no hosted service or account is required.
 
 ## Quick start
 
@@ -39,6 +39,11 @@ documented in [the package format guide](docs/package-format.md#durable-snapshot
 ```sh
 npm run accept -- ...
 ```
+
+Execution observations are separate from proposal bytes. Record one against an
+exact snapshot and phase with `npm run record-result`; pass the complete
+versioned record as a JSON object through `--record-file`. The runtime exposes
+verified current and historical records at `/api/results` and `/api/history`.
 
 ## Documentation
 

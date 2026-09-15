@@ -4,9 +4,9 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 P1 is implemented, verified, and approved on the phase branch; integration is pending.
+State: W03 P2 is implemented and verified on the phase branch; PR delivery is pending.
 
-Next action: Integrate [W03 P1 PR #8](https://github.com/brandall10/sgm-plan-bootstrap/pull/8); do not start P2 until it is integrated.
+Next action: Review and accept the W03 P2 phase PR; after integration, select P3.
 
 ## P1 — Model declared obligations and deterministic selections
 
@@ -16,10 +16,10 @@ Next action: Integrate [W03 P1 PR #8](https://github.com/brandall10/sgm-plan-boo
 
 ## P2 — Retain phase outcomes independently of proposal bytes
 
-- [ ] P2-T1 — Define and validate versioned, attributable result records and statement dispositions.
-- [ ] P2-T2 — Add atomic, verified result storage with idempotency, conflict, retention, and corruption behavior.
-- [ ] P2-T3 — Provide explicit result recording and read-only runtime/history projections.
-- [ ] P2-T4 — Verify retained results across restart, invalid records, mismatches, stale evidence, and illustrative fixtures.
+- [x] P2-T1 — Define and validate versioned, attributable result records and statement dispositions.
+- [x] P2-T2 — Add atomic, verified result storage with idempotency, conflict, retention, and corruption behavior.
+- [x] P2-T3 — Provide explicit result recording and read-only runtime/history projections.
+- [x] P2-T4 — Verify retained results across restart, invalid records, mismatches, stale evidence, and illustrative fixtures.
 
 ## P3 — Deliver attributable CLI context and expansion
 

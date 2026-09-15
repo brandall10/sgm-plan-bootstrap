@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { loadCandidate } from "./candidate-loader.js";
 import { CandidateStore } from "./candidate-store.js";
 import { SnapshotStore } from "./snapshot-store.js";
+import type { ResultRecord } from "../core/result.js";
 
 const repositoryRoot = resolve(process.cwd());
 
@@ -30,6 +31,36 @@ function recordFor(snapshotId: string, packageId: string, instruction = "I accep
     actor: "user:beau",
     recorded_at: "2026-09-13T16:00:00.000Z",
     illustrative: false,
+  };
+}
+
+function resultFor(snapshotId: string, packageId: string, resultId = "result.first", overrides: Partial<ResultRecord> = {}): ResultRecord {
+  return {
+    format: "plan-package-result",
+    format_version: "1",
+    result_id: resultId,
+    package_id: packageId,
+    snapshot_id: snapshotId,
+    phase_id: "phase.save-outcome",
+    activity: "implement",
+    author: "agent:test",
+    recorded_at: "2026-09-14T16:00:00.000Z",
+    code_revision: "commit-result-1",
+    environment: { node: "test" },
+    related_item_ids: ["criterion.successful-save"],
+    intended_work: [{ id: "intent.boundary", text_md: "Implement the outcome boundary.", disposition: "intended", related_item_ids: ["task.save-outcome-implementation"] }],
+    observed_facts: [{ id: "fact.readback", text_md: "The saved snapshot can be read back.", disposition: "observed", related_item_ids: ["criterion.successful-save"] }],
+    inferences: [],
+    unverified_claims: [],
+    produced_interfaces: [{ id: "interface.outcome", name: "Outcome interface", description_md: "Returns saved or unsaved.", disposition: "observed", related_item_ids: ["criterion.successful-save"] }],
+    deviations: [],
+    unresolved_findings: [],
+    evidence: [{ id: "evidence.readback", kind: "test", label: "Read-back test", locator: "snapshot-store.test.ts", code_revision: "commit-result-1", statement_ids: ["fact.readback"], status: "current" }],
+    delivery_facts: { review_status: "pending", integration_status: "not-integrated" },
+    continuation_notes: [],
+    supersedes: [],
+    illustrative: false,
+    ...overrides,
   };
 }
 
@@ -182,5 +213,115 @@ describe("durable plan snapshots", () => {
     expect(rejected).toBeNull();
     expect(failing.getState().lastAttempt).toBe("rejected");
     expect(failing.getState().diagnostics.map((diagnostic) => diagnostic.code)).toContain("snapshot-persistence-failed");
+  });
+
+  it("records and reopens an attributable result after the draft files disappear", async () => {
+    const fixture = await copyFixture("save-outcome");
+    const candidate = await new CandidateStore().loadAndPublish({ packageRoot: fixture.packageRoot });
+    if (!candidate?.snapshotId) throw new Error("Candidate should have a durable snapshot.");
+    const snapshotStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
+    const record = resultFor(candidate.snapshotId, candidate.packageId);
+    const manifestBefore = await readFile(join(fixture.packageRoot, "plan.json"));
+
+    const written = await snapshotStore.recordResult(record);
+    expect(written.created).toBe(true);
+    expect(written.result?.snapshot_id).toBe(candidate.snapshotId);
+    expect(written.result?.phase_id).toBe("phase.save-outcome");
+    expect(await readFile(join(fixture.packageRoot, "plan.json"))).toEqual(manifestBefore);
+
+    await unlink(join(fixture.packageRoot, "plan.json"));
+    await unlink(join(fixture.packageRoot, "docs/save-outcome-notes.md"));
+    await unlink(join(fixture.packageRoot, "assets/save-outcome.svg"));
+
+    const reopened = await new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") }).openResult(record.result_id);
+    expect(reopened.result?.snapshot_id).toBe(candidate.snapshotId);
+    expect(reopened.result?.package_id).toBe(candidate.packageId);
+    expect(reopened.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
+  });
+
+  it("makes retries idempotent, conflicts visible, and superseded history explicit", async () => {
+    const fixture = await copyFixture("save-outcome");
+    const candidate = await new CandidateStore().loadAndPublish({ packageRoot: fixture.packageRoot });
+    if (!candidate?.snapshotId) throw new Error("Candidate should have a durable snapshot.");
+    const snapshotStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
+    const first = resultFor(candidate.snapshotId, candidate.packageId, "result.first");
+    const second = resultFor(candidate.snapshotId, candidate.packageId, "result.repaired", {
+      recorded_at: "2026-09-14T17:00:00.000Z",
+      code_revision: "commit-result-2",
+      supersedes: ["result.first"],
+    });
+
+    expect((await snapshotStore.recordResult(first)).created).toBe(true);
+    const retry = await snapshotStore.recordResult({ ...first, recorded_at: "2026-09-14T16:01:00.000Z" });
+    const conflict = await snapshotStore.recordResult({ ...first, observed_facts: [{ ...first.observed_facts[0]!, text_md: "A different observation." }] });
+    expect(retry.idempotent).toBe(true);
+    expect(conflict.diagnostics.map((diagnostic) => diagnostic.code)).toContain("result-record-conflict");
+
+    expect((await snapshotStore.recordResult(second)).created).toBe(true);
+    const history = await snapshotStore.listResults(candidate.packageId, candidate.snapshotId, "phase.save-outcome");
+    expect(history.records.map((result) => result.result_id)).toEqual(["result.first", "result.repaired"]);
+    expect(history.current.map((result) => result.result_id)).toEqual(["result.repaired"]);
+  });
+
+  it("converges concurrent retries for one immutable result ID", async () => {
+    const fixture = await copyFixture("save-outcome");
+    const candidate = await new CandidateStore().loadAndPublish({ packageRoot: fixture.packageRoot });
+    if (!candidate?.snapshotId) throw new Error("Candidate should have a durable snapshot.");
+    const snapshotStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
+    const [first, second] = await Promise.all([
+      snapshotStore.recordResult(resultFor(candidate.snapshotId, candidate.packageId, "result.concurrent", { recorded_at: "2026-09-14T16:00:00.000Z" })),
+      snapshotStore.recordResult(resultFor(candidate.snapshotId, candidate.packageId, "result.concurrent", { recorded_at: "2026-09-14T16:01:00.000Z" })),
+    ]);
+
+    expect(first.result).not.toBeNull();
+    expect(second.result).not.toBeNull();
+    expect([first.created, second.created].filter(Boolean)).toHaveLength(1);
+    expect([first.idempotent, second.idempotent].filter(Boolean)).toHaveLength(1);
+    expect((await snapshotStore.listResults(candidate.packageId)).records.map((result) => result.result_id)).toEqual(["result.concurrent"]);
+  });
+
+  it("rejects mismatched or corrupt records without making them readable history", async () => {
+    const fixture = await copyFixture("save-outcome");
+    const candidate = await new CandidateStore().loadAndPublish({ packageRoot: fixture.packageRoot });
+    if (!candidate?.snapshotId) throw new Error("Candidate should have a durable snapshot.");
+    const root = join(fixture.packageRoot, ".plan-package");
+    const snapshotStore = new SnapshotStore({ root });
+
+    const wrongPackage = await snapshotStore.recordResult(resultFor(candidate.snapshotId, "other-package", "result.wrong-package"));
+    expect(wrongPackage.result).toBeNull();
+    expect(wrongPackage.diagnostics.map((diagnostic) => diagnostic.code)).toContain("result-package-mismatch");
+
+    const wrongItem = await snapshotStore.recordResult(resultFor(candidate.snapshotId, candidate.packageId, "result.wrong-item", { related_item_ids: ["criterion.missing"] }));
+    expect(wrongItem.result).toBeNull();
+    expect(wrongItem.diagnostics.map((diagnostic) => diagnostic.code)).toContain("result-related-item-unavailable");
+
+    const good = resultFor(candidate.snapshotId, candidate.packageId, "result.corruptible");
+    expect((await snapshotStore.recordResult(good)).created).toBe(true);
+    await writeFile(join(root, "results", `${good.result_id}.json`), "{\n");
+    const opened = await new SnapshotStore({ root }).openResult(good.result_id);
+    expect(opened.result).toBeNull();
+    expect(opened.diagnostics.map((diagnostic) => diagnostic.code)).toContain("result-record-corrupt");
+    expect((await snapshotStore.listResults(candidate.packageId)).records.map((result) => result.result_id)).not.toContain(good.result_id);
+  });
+
+  it("retains stale evidence as a visible limitation and preserves prior records on write failure", async () => {
+    const fixture = await copyFixture("save-outcome");
+    const candidate = await new CandidateStore().loadAndPublish({ packageRoot: fixture.packageRoot });
+    if (!candidate?.snapshotId) throw new Error("Candidate should have a durable snapshot.");
+    const stale = resultFor(candidate.snapshotId, candidate.packageId, "result.stale", {
+      evidence: [{ id: "evidence.old", kind: "test", label: "Old test", locator: "old-test", code_revision: "old-commit", statement_ids: ["fact.readback"], status: "current" }],
+    });
+    const snapshotStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
+    const written = await snapshotStore.recordResult(stale);
+    expect(written.created).toBe(true);
+    expect(written.diagnostics.map((diagnostic) => diagnostic.code)).toContain("stale-evidence");
+
+    const failingStore = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package"), beforeWrite: (_path, kind) => {
+      if (kind === "result") throw new Error("disk full");
+    } });
+    const failed = await failingStore.recordResult(resultFor(candidate.snapshotId, candidate.packageId, "result.failed-write"));
+    expect(failed.result).toBeNull();
+    expect(failed.diagnostics.map((diagnostic) => diagnostic.code)).toContain("result-record-write-failed");
+    expect((await snapshotStore.listResults(candidate.packageId)).records.map((result) => result.result_id)).toContain("result.stale");
   });
 });
