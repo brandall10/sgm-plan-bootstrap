@@ -13,8 +13,16 @@ import type {
   PlanPackage,
   Question,
 } from "../core/package.js";
+import type {
+  ResultEvidence,
+  ResultEvidenceStatus,
+  ResultFinding,
+  ResultInterface,
+  ResultRecord,
+  ResultStatement,
+} from "../core/result.js";
 import type { AcceptanceRecord } from "../core/snapshot.js";
-import { SafeMarkdown } from "./safe-markdown.js";
+import { SafeMarkdown, safeHref } from "./safe-markdown.js";
 
 import "./styles.css";
 
@@ -34,6 +42,27 @@ interface ViewerModel {
   files: PackageFile[];
   snapshot_id: string | null;
   acceptances: AcceptanceRecord[];
+  results: RuntimeResultProjection[];
+  phase_results: RuntimePhaseResultAvailability[];
+  result_diagnostics: Diagnostic[];
+}
+
+interface RuntimeResultProjection {
+  record: ResultRecord;
+  status: "current" | "superseded";
+  evidence_status: ResultEvidenceStatus;
+  acceptance_status: "unverified" | "accepted" | "illustrative";
+}
+
+interface RuntimePhaseResultActivity {
+  activity: "implement" | "verify";
+  current_result_ids: string[];
+  historical_result_ids: string[];
+}
+
+interface RuntimePhaseResultAvailability {
+  phase_id: string;
+  activities: RuntimePhaseResultActivity[];
 }
 
 interface RuntimeState {
@@ -372,6 +401,222 @@ function DecisionQuestionPanel({ packageId, plan, phase }: { packageId: string; 
   );
 }
 
+function resultDispositionTone(disposition: ResultStatement["disposition"]): "error" | "info" | "neutral" | "warning" {
+  if (disposition === "observed") return "info";
+  if (disposition === "unverified") return "error";
+  if (disposition === "intended") return "warning";
+  return "neutral";
+}
+
+function resultEvidenceTone(status: ResultEvidenceStatus): "error" | "info" | "neutral" | "warning" {
+  if (status === "current") return "info";
+  if (status === "stale") return "warning";
+  if (status === "unavailable") return "error";
+  return "neutral";
+}
+
+function ResultStatementList({ idPrefix, title, statements }: { idPrefix: string; title: string; statements: readonly ResultStatement[] }): ReactElement | null {
+  if (statements.length === 0) return null;
+  const headingId = `${idPrefix}-${title.toLowerCase().replaceAll(" ", "-")}`;
+  return (
+    <section className="result-section" aria-labelledby={headingId}>
+      <h4 id={headingId}>{title}</h4>
+      <ul className="result-item-list">
+        {statements.map((statement) => (
+          <li key={statement.id}>
+            <p className="result-item-heading"><Chip tone={resultDispositionTone(statement.disposition)}>{statement.disposition}</Chip> <code>{statement.id}</code></p>
+            <SafeMarkdown source={statement.text_md} />
+            {statement.related_item_ids.length > 0 ? <p className="result-related">Related package items: {statement.related_item_ids.map((itemId) => <code key={itemId}>{itemId}</code>)}</p> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ResultInterfaceList({ idPrefix, interfaces }: { idPrefix: string; interfaces: readonly ResultInterface[] }): ReactElement | null {
+  if (interfaces.length === 0) return null;
+  const headingId = `${idPrefix}-produced-interfaces`;
+  return (
+    <section className="result-section" aria-labelledby={headingId}>
+      <h4 id={headingId}>Produced interfaces</h4>
+      <ul className="result-item-list">
+        {interfaces.map((item) => (
+          <li key={item.id}>
+            <p className="result-item-heading"><Chip tone={resultDispositionTone(item.disposition)}>{item.disposition}</Chip> <code>{item.id}</code> <strong>{item.name}</strong></p>
+            <SafeMarkdown source={item.description_md} />
+            {item.related_item_ids.length > 0 ? <p className="result-related">Related package items: {item.related_item_ids.map((itemId) => <code key={itemId}>{itemId}</code>)}</p> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ResultFindingList({ idPrefix, findings }: { idPrefix: string; findings: readonly ResultFinding[] }): ReactElement | null {
+  if (findings.length === 0) return null;
+  const headingId = `${idPrefix}-findings`;
+  return (
+    <section className="result-section result-section--limitations" aria-labelledby={headingId}>
+      <h4 id={headingId}>Unresolved findings and limitations</h4>
+      <ul className="result-item-list">
+        {findings.map((finding) => (
+          <li key={finding.id}>
+            <p className="result-item-heading"><Chip tone={finding.severity === "blocking" ? "error" : "warning"}>{finding.severity}</Chip> <Chip tone={resultDispositionTone(finding.disposition)}>{finding.disposition}</Chip> <code>{finding.id}</code></p>
+            <SafeMarkdown source={finding.text_md} />
+            {finding.related_item_ids.length > 0 ? <p className="result-related">Related package items: {finding.related_item_ids.map((itemId) => <code key={itemId}>{itemId}</code>)}</p> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function EvidenceLocator({ evidence }: { evidence: ResultEvidence }): ReactElement {
+  const href = safeHref(evidence.locator);
+  return href
+    ? <a href={href} rel={href.startsWith("#") ? undefined : "noreferrer"} target={href.startsWith("#") ? undefined : "_blank"}>{evidence.locator}</a>
+    : <code>{evidence.locator}</code>;
+}
+
+function ResultEvidenceList({ evidence }: { evidence: readonly ResultEvidence[] }): ReactElement {
+  if (evidence.length === 0) {
+    return <p className="result-empty-note">No evidence links were recorded; this absence is not a success claim.</p>;
+  }
+  return (
+    <ul className="result-evidence-list">
+      {evidence.map((item) => (
+        <li data-testid={`result-evidence-${item.id}`} key={item.id}>
+          <p className="result-item-heading"><Chip tone={resultEvidenceTone(item.status)}>{item.status}</Chip> <strong>{item.label}</strong> <Chip>{item.kind}</Chip></p>
+          <dl className="result-evidence-metadata">
+            <div><dt>Locator</dt><dd><EvidenceLocator evidence={item} /></dd></div>
+            <div><dt>Code revision</dt><dd><code>{item.code_revision}</code></dd></div>
+            <div><dt>Supports</dt><dd>{item.statement_ids.map((statementId) => <code key={statementId}>{statementId}</code>)}</dd></div>
+          </dl>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function deliveryTone(status: string): "error" | "info" | "neutral" | "warning" {
+  if (status === "approved" || status === "integrated") return "info";
+  if (status === "changes-requested") return "error";
+  if (status === "not-reviewed" || status === "pending" || status === "not-integrated" || status === "unknown") return "warning";
+  return "neutral";
+}
+
+function ResultDeliveryFacts({ record }: { record: ResultRecord }): ReactElement {
+  const { delivery_facts: delivery } = record;
+  return (
+    <section className="result-section" aria-labelledby={`result-delivery-${record.result_id}`}>
+      <h4 id={`result-delivery-${record.result_id}`}>Review and integration facts</h4>
+      <dl className="result-delivery">
+        <div><dt>Review</dt><dd><Chip tone={deliveryTone(delivery.review_status)}>{delivery.review_status}</Chip></dd></div>
+        <div><dt>Integration</dt><dd><Chip tone={deliveryTone(delivery.integration_status)}>{delivery.integration_status}</Chip></dd></div>
+        {delivery.pr_url ? <div><dt>Pull request</dt><dd><a href={delivery.pr_url} rel="noreferrer" target="_blank">{delivery.pr_url}</a></dd></div> : null}
+        {delivery.integrated_revision ? <div><dt>Integrated revision</dt><dd><code>{delivery.integrated_revision}</code></dd></div> : null}
+      </dl>
+      {delivery.notes_md ? <SafeMarkdown source={delivery.notes_md} /> : null}
+    </section>
+  );
+}
+
+function ResultRecordCard({ projection }: { projection: RuntimeResultProjection }): ReactElement {
+  const { record } = projection;
+  return (
+    <article className={`result-record result-record--${projection.status}`} data-testid={`result-record-${record.result_id}`}>
+      <header className="result-record__header">
+        <div>
+          <p className="eyebrow">Execution record</p>
+          <h3 id={`result-heading-${record.result_id}`}>{record.result_id}</h3>
+        </div>
+        <div className="result-labels">
+          <Chip tone={projection.status === "current" ? "info" : "neutral"}>{projection.status}</Chip>
+          <Chip tone={projection.acceptance_status === "accepted" ? "info" : "warning"}>{projection.acceptance_status}</Chip>
+          <Chip>{record.activity}</Chip>
+          {record.illustrative ? <Chip tone="warning">illustrative fixture</Chip> : null}
+        </div>
+      </header>
+      <dl className="result-metadata">
+        <div><dt>Phase</dt><dd><code>{record.phase_id}</code></dd></div>
+        <div><dt>Source snapshot</dt><dd><code>{record.snapshot_id}</code></dd></div>
+        <div><dt>Code revision</dt><dd><code>{record.code_revision}</code></dd></div>
+        <div><dt>Recorded by</dt><dd><code>{record.author}</code></dd></div>
+        <div><dt>Recorded at</dt><dd><time dateTime={record.recorded_at}>{record.recorded_at}</time></dd></div>
+        <div><dt>Evidence status</dt><dd><Chip tone={resultEvidenceTone(projection.evidence_status)}>{projection.evidence_status}</Chip></dd></div>
+      </dl>
+      <div className="result-record__body">
+        <ResultStatementList idPrefix={record.result_id} title="Intended work" statements={record.intended_work} />
+        <ResultStatementList idPrefix={record.result_id} title="Observed facts" statements={record.observed_facts} />
+        <ResultStatementList idPrefix={record.result_id} title="Inferences" statements={record.inferences} />
+        <ResultStatementList idPrefix={record.result_id} title="Unverified claims" statements={record.unverified_claims} />
+        <ResultInterfaceList idPrefix={record.result_id} interfaces={record.produced_interfaces} />
+        <ResultStatementList idPrefix={record.result_id} title="Deviations" statements={record.deviations} />
+        <section className="result-section" aria-labelledby={`result-evidence-heading-${record.result_id}`}>
+          <h4 id={`result-evidence-heading-${record.result_id}`}>Evidence</h4>
+          <ResultEvidenceList evidence={record.evidence} />
+        </section>
+        <ResultFindingList idPrefix={record.result_id} findings={record.unresolved_findings} />
+        <ResultStatementList idPrefix={record.result_id} title="Continuation notes" statements={record.continuation_notes} />
+        <ResultDeliveryFacts record={record} />
+      </div>
+    </article>
+  );
+}
+
+function ResultAvailability({ model }: { model: ViewerModel }): ReactElement | null {
+  if (model.phase_results.length === 0) return null;
+  return (
+    <section className="result-availability" aria-labelledby="result-availability-heading">
+      <h3 id="result-availability-heading">Result availability by phase</h3>
+      <ul>
+        {model.phase_results.map((phaseResults) => {
+          const phase = model.package.phases.find((candidate) => candidate.id === phaseResults.phase_id);
+          return (
+            <li key={phaseResults.phase_id}>
+              <div><ItemLink packageId={model.package_id} itemId={phaseResults.phase_id}>{phase?.title ?? phaseResults.phase_id}</ItemLink> <code>{phaseResults.phase_id}</code></div>
+              <ul className="result-availability__activities">
+                {phaseResults.activities.map((activity) => (
+                  <li key={activity.activity}>
+                    <strong>{activity.activity}</strong>
+                    {activity.current_result_ids.length > 0
+                      ? <span><Chip tone="info">{activity.current_result_ids.length} current</Chip> {activity.current_result_ids.map((resultId) => <code key={resultId}>{resultId}</code>)}</span>
+                      : activity.historical_result_ids.length > 0
+                        ? <span><Chip tone="warning">no current result</Chip> {activity.historical_result_ids.map((resultId) => <code key={resultId}>{resultId}</code>)}</span>
+                        : <span className="result-empty-note">No retained result</span>}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function ResultPanel({ model, phaseId }: { model: ViewerModel; phaseId?: string }): ReactElement {
+  const records = model.results.filter((projection) => !phaseId || projection.record.phase_id === phaseId);
+  const headingId = phaseId ? `phase-results-heading-${phaseId}` : "execution-results-heading";
+  return (
+    <section aria-labelledby={headingId} className="result-panel" data-testid={phaseId ? "phase-results" : "execution-results"}>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Read-only product history</p>
+          <h2 id={headingId}>{phaseId ? "Execution results for this phase" : "Execution results"}</h2>
+        </div>
+        <p>{phaseId ? "Retained observations for this phase, attributed to the selected snapshot and activity." : "Retained observations are separate from the proposal and do not turn a fixture into a delivered product."}</p>
+      </div>
+      {!phaseId ? <ResultAvailability model={model} /> : null}
+      {records.length === 0
+        ? <p className="result-empty" role="status">No retained result records are available for this {phaseId ? "phase" : "snapshot"}. This is not a success claim.</p>
+        : <div className="result-record-list">{records.map((projection) => <ResultRecordCard key={projection.record.result_id} projection={projection} />)}</div>}
+      {model.result_diagnostics.length > 0 ? <DiagnosticPanel diagnostics={model.result_diagnostics} /> : null}
+    </section>
+  );
+}
+
 function assetUrl(model: ViewerModel, assetId: string): string {
   const base = model.view_kind === "snapshot" && model.snapshot_id
     ? `/api/snapshots/${encodeURIComponent(model.snapshot_id)}`
@@ -479,6 +724,7 @@ function PhaseDetail({ model, phase, highlightedCriterionId }: { model: ViewerMo
       </article>
       <DecisionQuestionPanel packageId={model.package_id} phase={phase} plan={model.package} />
       <ArtifactList model={model} phase={phase} />
+      <ResultPanel model={model} phaseId={phase.id} />
     </>
   );
 }
@@ -500,6 +746,7 @@ function Overview({ model }: { model: ViewerModel }): ReactElement {
         </section>
       </article>
       <DependencyMap packageId={model.package_id} phases={plan.phases} />
+      <ResultPanel model={model} />
       <DecisionQuestionPanel packageId={model.package_id} plan={plan} />
       <ArtifactList model={model} />
     </>

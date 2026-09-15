@@ -6,8 +6,11 @@ import { performance } from "node:perf_hooks";
 import { chromium } from "@playwright/test";
 
 import { loadCandidate } from "./candidate-loader.js";
+import { CandidateStore } from "./candidate-store.js";
+import { runPlanCli } from "./plan-cli.js";
 import { startRuntime } from "./runtime.js";
 import { publishPackage } from "./publication.js";
+import { SnapshotStore } from "./snapshot-store.js";
 
 const repositoryRoot = resolve(process.cwd());
 const runCount = 5;
@@ -23,6 +26,20 @@ function summarize(samples: number[]): Timing {
     maxMs: Number((ordered.at(-1) ?? 0).toFixed(2)),
     samplesMs: samples.map((sample) => Number(sample.toFixed(2))),
   };
+}
+
+function characterCount(value: string): number {
+  return Array.from(value).length;
+}
+
+function fullFixtureContext(candidate: NonNullable<Awaited<ReturnType<typeof loadCandidate>>["candidate"]>): string {
+  return JSON.stringify({
+    manifest: candidate.plan,
+    declared_files: [...candidate.files.values()].map(({ file, bytes }) => ({
+      ...file,
+      content: new TextDecoder().decode(bytes),
+    })),
+  });
 }
 
 async function waitForRevision(host: string, port: number, revision: number): Promise<void> {
@@ -47,6 +64,64 @@ async function measure(): Promise<void> {
   const baseline = await loadCandidate({ packageRoot, repositoryRoot });
   if (!baseline.candidate) throw new Error("Representative fixture did not load.");
   const fixtureBytes = [...baseline.candidate.files.values()].reduce((total, file) => total + file.bytes.byteLength, 0);
+
+  const contextPackageRoot = await copyFixture();
+  const contextStore = new CandidateStore();
+  const contextCandidate = await contextStore.loadAndPublish({ packageRoot: contextPackageRoot, repositoryRoot });
+  if (!contextCandidate?.snapshotId) throw new Error("Context measurement fixture did not publish a durable snapshot.");
+  const contextSnapshotStore = new SnapshotStore({ root: join(contextPackageRoot, ".plan-package") });
+  const accepted = await contextSnapshotStore.recordAcceptance({
+    format: "plan-package-acceptance",
+    format_version: "1",
+    record_id: "acceptance.measurement",
+    package_id: contextCandidate.packageId,
+    snapshot_id: contextCandidate.snapshotId,
+    instruction: "Accept the representative fixture for context measurement.",
+    source: "measurement:context-comparison",
+    actor: "tool:measure-runtime",
+    recorded_at: "2026-09-15T16:00:00.000Z",
+    illustrative: false,
+  });
+  if (!accepted.record) throw new Error("Context measurement fixture could not record its illustrative acceptance.");
+  const fullContext = fullFixtureContext(contextCandidate);
+  const fullContextSamples: number[] = [];
+  for (let index = 0; index < runCount; index += 1) {
+    const start = performance.now();
+    fullFixtureContext(contextCandidate);
+    fullContextSamples.push(performance.now() - start);
+  }
+  const selectedContextSamples: number[] = [];
+  let selectedContext = "";
+  for (let index = 0; index < runCount; index += 1) {
+    const start = performance.now();
+    const result = await runPlanCli({
+      command: "context",
+      packagePath: contextPackageRoot,
+      snapshotId: contextCandidate.snapshotId,
+      phaseId: "phase.persistence-outcomes",
+      activity: "implement",
+      refs: [],
+      compareDraft: false,
+    });
+    if (result.exitCode !== 0) throw new Error("Selected context measurement did not produce a ready handoff.");
+    selectedContext = result.output;
+    selectedContextSamples.push(performance.now() - start);
+  }
+  const expansionSamples: number[] = [];
+  let expandedContext = "";
+  for (let index = 0; index < runCount; index += 1) {
+    const start = performance.now();
+    const result = await runPlanCli({
+      command: "expand",
+      packagePath: contextPackageRoot,
+      snapshotId: contextCandidate.snapshotId,
+      refs: ["reference.recovery-notes", "asset.recovery-flow"],
+      compareDraft: false,
+    });
+    if (result.exitCode !== 0) throw new Error("Context expansion measurement failed.");
+    expandedContext = result.output;
+    expansionSamples.push(performance.now() - start);
+  }
 
   const loadSamples: number[] = [];
   for (let index = 0; index < runCount; index += 1) {
@@ -131,7 +206,7 @@ async function measure(): Promise<void> {
       cpu: cpus()[0]?.model ?? "unknown",
       browser: "Google Chrome channel via Playwright",
     },
-    method: "Five ordinary sequential warm runs per category; dependency installation and process startup are excluded from load/render/refresh samples. Runtime-open includes candidate load, watcher-disabled server startup, and one /api/state request. Render includes page navigation and the overview heading becoming visible. Text/asset refresh includes the file edit, atomic publication, watched candidate publication, and the corresponding state/asset request.",
+    method: "Five ordinary sequential warm runs per category; dependency installation and process startup are excluded from load/render/refresh samples. Runtime-open includes candidate load, watcher-disabled server startup, and one /api/state request. Render includes page navigation and the overview heading becoming visible. Text/asset refresh includes the file edit, atomic publication, watched candidate publication, and the corresponding state/asset request. Context comparison uses an illustrative accepted temporary copy of the representative fixture: full context is the JSON manifest plus all captured file text, selected context is the exact ready Markdown handoff for the persistence implementation phase, and expansion is an explicit notes/diagram request against the same snapshot.",
     runs: runCount,
     measurements: {
       warmCandidateLoadMs: summarize(loadSamples),
@@ -139,6 +214,31 @@ async function measure(): Promise<void> {
       browserRenderMs: summarize(renderSamples),
       textRefreshMs: summarize(textSamples),
       assetRefreshMs: summarize(assetSamples),
+      contextComparison: {
+        snapshotId: contextCandidate.snapshotId,
+        phaseId: "phase.persistence-outcomes",
+        activity: "implement",
+        full: {
+          characters: characterCount(fullContext),
+          elapsedMs: summarize(fullContextSamples),
+        },
+        selected: {
+          characters: characterCount(selectedContext),
+          elapsedMs: summarize(selectedContextSamples),
+          expansionUses: 0,
+        },
+        expansion: {
+          refs: ["reference.recovery-notes", "asset.recovery-flow"],
+          characters: characterCount(expandedContext),
+          elapsedMs: summarize(expansionSamples),
+          expansionUses: runCount,
+        },
+        limitations: [
+          "Character counts are not model token counts; no tokenizer was used.",
+          "The full representation includes captured fixture file text while the selected handoff keeps those references expandable, so the comparison is an exploratory context-size measurement rather than a productivity claim.",
+          "The five runs are local sequential measurements on one illustrative package and do not measure authoring, model, verification, or human-intervention time.",
+        ],
+      },
     },
   }, null, 2));
 }

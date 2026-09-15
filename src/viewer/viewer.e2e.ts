@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
 
+import type { ResultRecord } from "../core/result.js";
 import { startRuntime, type RunningRuntime } from "../server/runtime.js";
 import { publishPackage } from "../server/publication.js";
 import { SnapshotStore } from "../server/snapshot-store.js";
@@ -24,6 +25,38 @@ async function copyFixture(name: string): Promise<{ packageRoot: string }> {
   await cp(resolve(repositoryRoot, "examples", name), packageRoot, { recursive: true });
   await rm(join(packageRoot, ".plan-package"), { recursive: true, force: true });
   return { packageRoot };
+}
+
+function viewerResultFor(snapshotId: string, resultId: string, codeRevision: string, overrides: Partial<ResultRecord> = {}): ResultRecord {
+  const factId = `fact.${resultId.replaceAll("result.", "")}`;
+  const evidenceId = `evidence.${resultId.replaceAll("result.", "")}`;
+  return {
+    format: "plan-package-result",
+    format_version: "1",
+    result_id: resultId,
+    package_id: "offline-recovery",
+    snapshot_id: snapshotId,
+    phase_id: "phase.recovery-experience",
+    activity: "verify",
+    author: "fixture:viewer-e2e",
+    recorded_at: codeRevision === "viewer-before-repair" ? "2026-09-15T15:00:00.000Z" : "2026-09-15T15:01:00.000Z",
+    code_revision: codeRevision,
+    environment: { runner: "playwright", scenario: "result-panel" },
+    related_item_ids: ["criterion.restore-choice", "criterion.recovery-outcome-contract"],
+    intended_work: [],
+    observed_facts: [{ id: factId, text_md: "The viewer can inspect this retained verification record.", disposition: "observed", related_item_ids: ["criterion.restore-choice"] }],
+    inferences: [],
+    unverified_claims: [],
+    produced_interfaces: [],
+    deviations: [],
+    unresolved_findings: [],
+    evidence: [{ id: evidenceId, kind: "test", label: "Viewer result-panel check", locator: "src/viewer/viewer.e2e.ts", code_revision: codeRevision, statement_ids: [factId], status: "current" }],
+    delivery_facts: { review_status: "not-reviewed", integration_status: "not-integrated", notes_md: "This fixture result supports package inspection only; it is not a delivered exercise product." },
+    continuation_notes: [],
+    supersedes: [],
+    illustrative: true,
+    ...overrides,
+  };
 }
 
 test.beforeAll(async () => {
@@ -113,6 +146,101 @@ test("uses a second package's own content instead of offline-recovery assumption
   await expect(page.getByText("A successful write returns saved only after the persisted snapshot can be read back.", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: /small diagram showing the distinction/ })).toBeVisible();
   await expect(page.getByText("Continue your offline practice?", { exact: true })).toHaveCount(0);
+});
+
+test("renders read-only result history consistently on overview and phase views", async ({ page }) => {
+  const fixture = await copyFixture("offline-recovery");
+  const runtime = await startRuntime({
+    packageRoot: fixture.packageRoot,
+    port: 0,
+    watch: false,
+    serveViewer: true,
+    viewerRoot: repositoryRoot,
+  });
+
+  try {
+    const base = runtimeUrl(runtime);
+    const state = await (await fetch(`${base}/api/state`)).json() as { packageId: string; currentSnapshotId: string | null };
+    if (!state.currentSnapshotId) throw new Error("The fixture did not publish a durable snapshot.");
+    const snapshotId = state.currentSnapshotId;
+    const store = new SnapshotStore({ root: join(fixture.packageRoot, ".plan-package") });
+    expect((await store.recordAcceptance({
+      format: "plan-package-acceptance",
+      format_version: "1",
+      record_id: "acceptance.viewer-results",
+      package_id: state.packageId,
+      snapshot_id: snapshotId,
+      instruction: "I accept this exact result-panel snapshot.",
+      source: "test:viewer-results",
+      actor: "user:viewer-results",
+      recorded_at: "2026-09-15T15:00:00.000Z",
+      illustrative: false,
+    })).created).toBe(true);
+
+    const beforeRepair = viewerResultFor(snapshotId, "result.viewer-before-repair", "viewer-before-repair", {
+      evidence: [{
+        id: "evidence.viewer-before-repair",
+        kind: "test",
+        label: "Obsolete viewer verification",
+        locator: "src/viewer/viewer.e2e.ts",
+        code_revision: "viewer-obsolete",
+        statement_ids: ["fact.viewer-before-repair"],
+        status: "stale",
+      }],
+      unresolved_findings: [{
+        id: "finding.viewer-repair",
+        text_md: "The first verification pass is stale after the candidate repair.",
+        severity: "consequential",
+        disposition: "observed",
+        related_item_ids: ["criterion.restore-choice"],
+      }],
+    });
+    const afterRepair = viewerResultFor(snapshotId, "result.viewer-after-repair", "viewer-after-repair", {
+      evidence: [{
+        id: "evidence.viewer-after-repair",
+        kind: "test",
+        label: "Repaired viewer verification",
+        locator: "src/viewer/viewer.e2e.ts",
+        code_revision: "viewer-after-repair",
+        statement_ids: ["fact.viewer-after-repair"],
+        status: "current",
+      }],
+      supersedes: [beforeRepair.result_id],
+    });
+    expect((await store.recordResult(beforeRepair)).created).toBe(true);
+    expect((await store.recordResult(afterRepair)).created).toBe(true);
+    await fetch(`${base}/api/reload`, { method: "POST" });
+
+    await page.goto(`${base}/#/packages/offline-recovery/snapshots/${snapshotId}`);
+    await expect(page.getByText("Accepted snapshot", { exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("execution-results")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Result availability by phase", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "result.viewer-after-repair", exact: true })).toBeVisible();
+
+    await page.goto(`${base}/#/packages/offline-recovery/snapshots/${snapshotId}/items/phase.recovery-experience`);
+    const phaseResults = page.getByTestId("phase-results");
+    await expect(phaseResults).toBeVisible();
+    await expect(phaseResults.getByTestId("result-record-result.viewer-before-repair")).toContainText("superseded");
+    await expect(phaseResults.getByTestId("result-record-result.viewer-before-repair")).toContainText("stale");
+    await expect(phaseResults.getByTestId("result-record-result.viewer-before-repair")).toContainText("The first verification pass is stale after the candidate repair.");
+    await expect(phaseResults.getByTestId("result-record-result.viewer-after-repair")).toContainText("current");
+    await expect(phaseResults.getByTestId("result-record-result.viewer-after-repair")).toContainText("Evidence");
+    await expect(phaseResults.getByTestId("result-record-result.viewer-after-repair")).toContainText("Review and integration facts");
+    await expect(phaseResults.getByTestId("result-record-result.viewer-after-repair")).toContainText("This fixture result supports package inspection only; it is not a delivered exercise product.");
+    await expect(phaseResults).toContainText(snapshotId);
+    await expect(phaseResults).toContainText("src/viewer/viewer.e2e.ts");
+
+    await page.setViewportSize({ width: 700, height: 1000 });
+    await expect(page.locator(".result-metadata").first()).toBeVisible();
+    const metadata = await page.locator(".result-metadata").first().boundingBox();
+    const panel = await phaseResults.boundingBox();
+    expect(metadata).not.toBeNull();
+    expect(panel).not.toBeNull();
+    expect(metadata!.width).toBeLessThanOrEqual(panel!.width);
+  } finally {
+    await page.goto("about:blank");
+    await runtime.close();
+  }
 });
 
 test("renders unsafe narrative as text and keeps an unsafe destination inert", async ({ page }) => {

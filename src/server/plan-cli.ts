@@ -28,7 +28,7 @@ import {
   type Question,
   type Reference,
 } from "../core/package.js";
-import { resultEvidenceStatus, type ResultFinding, type ResultInterface, type ResultRecord, type ResultStatement } from "../core/result.js";
+import { resultEvidenceStatus, type ResultEvidence, type ResultFinding, type ResultInterface, type ResultRecord, type ResultStatement } from "../core/result.js";
 import type { AcceptanceRecord } from "../core/snapshot.js";
 import { snapshotIdentityInput, type SnapshotDescriptor } from "../core/snapshot.js";
 import { loadCandidate, type CandidateLoadResult } from "./candidate-loader.js";
@@ -663,6 +663,19 @@ function renderFindings(findings: readonly ResultFinding[]): string[] {
   ];
 }
 
+function renderEvidence(evidence: readonly ResultEvidence[]): string[] {
+  if (evidence.length === 0) return ["#### Evidence", "- no evidence links recorded; this absence is not a success claim."];
+  return [
+    "#### Evidence",
+    ...evidence.flatMap((item) => [
+      `- ${code(item.id)} [${item.status}; ${item.kind}] — ${item.label}`,
+      `  - locator: ${code(item.locator)}`,
+      `  - code revision: ${code(item.code_revision)}`,
+      `  - supports: ${listOrNone(item.statement_ids)}`,
+    ]),
+  ];
+}
+
 function renderResultRecord(record: ResultRecord, status: "current" | "superseded"): string[] {
   return [
     `### ${record.result_id} — ${record.activity} — ${status}${record.illustrative ? " — illustrative" : ""}`,
@@ -681,6 +694,7 @@ function renderResultRecord(record: ResultRecord, status: "current" | "supersede
     ...renderInterfaces(record.produced_interfaces),
     ...renderStatements("Deviations", record.deviations),
     ...renderFindings(record.unresolved_findings),
+    ...renderEvidence(record.evidence),
     ...renderStatements("Continuation notes", record.continuation_notes),
     `- delivery: review ${record.delivery_facts.review_status}; integration ${record.delivery_facts.integration_status}${record.delivery_facts.pr_url ? `; PR ${record.delivery_facts.pr_url}` : ""}`,
   ];

@@ -48,6 +48,16 @@ Comparison links use
 Missing or package-mismatched deep links remain visible errors rather than
 silently selecting another item.
 
+The overview and each phase view also include a read-only **Execution results**
+panel. It is populated from the runtime projection, not from the working draft
+or viewer-local state. Each retained record shows its result status
+(`current`/`superseded`), activity, acceptance status, exact source snapshot,
+code revision, author, evidence status and links, limitations/findings, and
+separate review/integration facts. An empty panel says that no result is
+available; it never presents absence as a successful execution. Illustrative
+fixture records remain labeled as fixtures and do not assert that the described
+product was delivered.
+
 Narrative Markdown is rendered as text and small supported Markdown constructs;
 raw HTML is never interpreted and only `https:`, `http:`, `mailto:`, and
 fragment link destinations become links.
@@ -94,6 +104,15 @@ a fenced Markdown block, while visual/binary material receives an immutable
 `--compare-draft` only when you want a separately labelled W02-style change
 summary for the working draft. `--store <store-directory>` supports fresh
 recovery when the working package files are no longer available.
+
+For a fresh handoff, keep the accepted snapshot ID from `current` or
+`context`, then use `--store` if `plan.json` and its live references have been
+removed or changed. The retained snapshot is the authority for the selected
+goal, criteria, references, assets, and results. A result's evidence revision
+and availability remain visible, so a stale or unavailable check must be
+repaired and recorded rather than inheriting an earlier pass. The focused
+context measurement method and latest local sample are recorded in
+[context-measurement.md](context-measurement.md).
 
 ## Refresh troubleshooting
 
