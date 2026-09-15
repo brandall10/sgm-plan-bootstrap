@@ -1,4 +1,4 @@
-# Plan Package format, runtime, and viewer
+# Plan Package format and publication
 
 The package core supports one versioned representation: an inline `plan.json` manifest with
 `format: "plan-package"` and `format_version: "1.0"`. The reader accepts the
@@ -30,6 +30,7 @@ pulling the downstream narrative into the prerequisite's focused context.
 IDs are globally unique across addressable package items, including phases,
 tasks, criteria, files, references, assets, decisions, questions, and
 constraints.
+
 Paths use normalized `/` separators and are relative to the root declared on
 their file entry. Absolute paths, `.`/`..` segments, NUL bytes, and Windows
 backslash paths are rejected. A repository-root entry requires the runtime to
@@ -65,182 +66,8 @@ fails, the existing manifest is left in place.
 
 The manifest's `state` field is retained for v1 compatibility but never proves
 acceptance. The local runtime derives acceptance only from a durable record;
-the viewer labels a candidate with no selected record as acceptance
-unverified.
+the viewer labels a candidate with no selected record as acceptance unverified.
 
-## Durable snapshots and acceptance
-
-When the local runtime publishes a candidate it first creates the package's
-ignored `.plan-package/` store. The store contains:
-
-- `blobs/<sha256>` — immutable manifest and captured-file bytes;
-- `snapshots/<full-sha256>.json` — a versioned descriptor containing the exact
-  manifest digest, author revision, compatibility content ID, sorted file
-  inventory, and explicit optional omissions; and
-- `acceptances/<record-id>.json` — append-only, versioned provenance records; and
-- `results/<result-id>.json` — append-only, versioned observations bound to an
-  exact snapshot, phase, activity, code revision, and evidence set.
-
-Snapshot IDs are full SHA-256 digests over the exact manifest bytes and the
-deterministic captured inventory. Repository-root files and every selected
-asset dependency are retained in the same way as package-root files. The store
-is excluded from package inputs and is never fetched from external references.
-Existing blobs, descriptors, and records are verified before an identical
-retry is accepted; different bytes under an existing immutable identity fail.
-Reopening a snapshot verifies the descriptor, manifest, every blob digest, and
-the compatibility content ID before serving retained bytes. It never falls
-back to the current draft.
-
-Record an explicit acceptance only after the conversation has authorized it:
-
-```sh
-npm run accept -- \
-  --package examples/save-outcome \
-  --snapshot-id <full-snapshot-sha256> \
-  --record-id acceptance.save-outcome-1 \
-  --actor user:example \
-  --source conversation:user-message-1 \
-  --instruction-file /absolute/path/to/instruction.txt
-```
-
-The command requires a concrete snapshot and UTF-8 instruction file; it never
-selects “latest” implicitly. Reusing a record ID with identical input is
-idempotent (the generated timestamp is not part of the retry identity), while
-conflicting input fails. Acceptance is provenance only: it does not mutate
-`plan.json`, activate execution, or make a blocking question executable.
-
-## Durable result records
-
-Result records retain execution observations independently of the accepted
-proposal. They carry separate statement arrays for intended work, observed
-facts, inferences, and unverified claims, plus produced interfaces, deviations,
-unresolved findings, evidence links, delivery facts, continuation notes, and
-explicit supersession. Every result also names its package, full snapshot ID,
-phase, activity, author, recording time, code revision, relevant environment,
-and related package item IDs. An illustrative result remains visibly
-illustrative; a result record never establishes acceptance, verification, or
-integration by itself.
-
-Record a result only with an explicit snapshot and phase. A JSON input file can
-contain the full result body; the command supplies or overrides its source
-identity and provenance fields:
-
-```sh
-npm run record-result -- \
-  --package examples/save-outcome \
-  --snapshot-id <full-snapshot-sha256> \
-  --phase phase.save-outcome \
-  --activity verify \
-  --record-id result.save-outcome-verify-1 \
-  --author agent:example \
-  --code-revision <git-revision> \
-  --record-file /absolute/path/to/result.json
-```
-
-The store reopens the referenced retained snapshot and validates the phase and
-related item IDs before publishing. Identical retries by result ID are
-idempotent (recorded time is not part of retry identity); different input,
-missing superseded records, corrupt history, mismatched identities, and stale
-or unavailable evidence remain visible diagnostics. Superseded records remain
-available as history and are not reported as current. The read-only runtime
-projection is available at `/api/results`, `/api/history`, and the per-record
-route `/api/results/<result-id>`.
-
-The viewer's history projection is available at `/api/history` (also exposed
-as `/api/snapshots`). It lists verified snapshots, their acceptance records
-and captured-file availability, plus the current working draft and the default
-view. An accepted snapshot is selected as the default only when a
-non-illustrative acceptance record names it; otherwise the working draft is
-shown. Acceptance records remain provenance, so an illustrative record is
-listed and labeled but does not become the default.
-
-Two saved snapshots can be compared with
-`/api/compare?from=<snapshot-id>&to=<snapshot-id>`. The `to` selection may
-also be `draft`, which resolves to the current working draft's persisted
-snapshot. Comparison output uses stable package IDs, separates material
-changes from metadata/serialization changes, includes old and new values, and
-reports captured inputs that cannot be verified. Comparisons across package
-IDs and comparisons with unavailable or corrupt snapshots are rejected.
-
-The runtime reads exact manifest bytes before loading files and rereads them
-afterward. A manifest mutation, missing file, digest mismatch, or path escape
-discards the candidate. A successful candidate receives a separate displayed
-content ID derived from the exact manifest bytes and verified file inventory.
-Responses for that candidate use captured bytes rather than rereading working
-files.
-
-## Local runtime and review surface
-
-Install dependencies once, then launch either fixture with one command:
-
-```sh
-npm install
-npm run dev -- --package examples/offline-recovery
-npm run dev -- --package examples/save-outcome
-```
-
-The runtime binds to `127.0.0.1` by default and opens the browser viewer at
-`/`. It exposes `/api/health`, `/api/state`, `/api/acceptances`,
-`/api/history`, and a server-sent event stream at `/api/events`. The working
-draft is available at `/api/draft/model`, while an immutable saved snapshot is
-available at `/api/snapshots/<snapshot-id>/model`. Both views have captured
-`files` and non-HTML `assets` routes; HTML prototypes are served only through
-their isolated `prototypes/<asset-id>/` route. The older candidate-scoped
-routes remain available for compatibility, but new links to accepted material
-use snapshot-scoped URLs.
-
-The viewer's **Reload package** control uses `POST /api/reload` to reread and
-revalidate the already selected package. It writes no package files: a valid
-candidate becomes current, while an invalid candidate leaves the last valid
-candidate visible with its diagnostics. The runtime also watches `plan.json`,
-declared local files, and the parent directories needed to observe atomic renames
-and missing-file recovery. Events are debounced, serialized, and generation-fenced;
-the newest load request cannot be replaced by a slower older resolution. A valid
-load emits `candidate-published`; a rejected load emits `candidate-rejected` with
-the retained candidate's package/revision and the rejection diagnostics.
-
-The viewer renders that resolved model instead of reparsing package files. Its
-overview and phase routes use stable package/item IDs in the hash, show goal,
-scope, shared constraints, exact criteria, dependencies, applicable decisions
-and questions, diagnostics, and artifact metadata. Unqualified package links
-open the selected default view, while concrete links use
-`#/packages/<package-id>/draft` or
-`#/packages/<package-id>/snapshots/<snapshot-id>` (with optional `/items/<id>`).
-The view switcher exposes the working draft and every recorded snapshot.
-Comparison links use
-`#/packages/<package-id>/compare/<from-snapshot-id>/<draft|to-snapshot-id>`.
-Missing or package-mismatched deep links remain visible errors rather than
-silently selecting another item.
-Narrative Markdown is rendered as text and small supported Markdown constructs;
-raw HTML is never interpreted and only `https:`, `http:`, `mailto:`, and fragment
-link destinations become links.
-
-SVG assets are displayed as images from their immutable snapshot or draft URL.
-HTML prototype assets are deliberately unavailable from the generic asset
-endpoint: the viewer opens them only at the view's
-`/api/{draft|snapshots/<snapshot-id>}/prototypes/<asset-id>/` route in an iframe
-with `sandbox="allow-scripts"`. The runtime serves only that HTML file and its
-declared relative dependencies from the captured view, applies restrictive
-CSP, and prevents the opaque sandbox from accessing viewer controls. The mock
-label is part of the frame, not an assertion that a product action occurred.
-
-The viewer provides manual reload and live refresh. Its connection label reports
-`connected`, `reconnecting`, or `offline`. On an SSE reconnect it fetches `/api/state`
-again so missed events do not hide a rejected candidate or a newer revision. When a
-selected stable item survives a refresh, its hash route, scroll anchor, and open
-rationale details are retained. If the item is removed, the viewer navigates to its
-surviving phase or the package overview and explains the fallback. A candidate that
-is no longer available after a runtime restart is reported as unavailable rather
-than silently showing a different candidate.
-
-### Refresh troubleshooting
-
-If the viewer says it is showing the last valid revision, inspect `/api/state` and
-read the diagnostic paths before editing. Restore all files involved in the
-completed-write convention, then run the publication helper so the manifest's
-digests and revision describe one complete candidate. A malformed or partial
-manifest is intentionally retried only when another watched filesystem event
-arrives; it is not hot-looped in the background. If the connection label remains
-`reconnecting`, keep the viewer open while the local runtime is restarted or use
-**Try again** after the runtime is available. The current hash route is preserved
-across a transient disconnect.
+For the retained snapshot, acceptance, and result lifecycle, see
+[Package history, acceptance, and results](package-history.md). For launching
+and inspecting a package locally, see [Local runtime and viewer](runtime-and-viewer.md).
