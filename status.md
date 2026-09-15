@@ -6,7 +6,7 @@ Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md
 
 State: W03 P1 is implemented and verified on the phase branch; review is pending.
 
-Next action: Review and accept the W03 P1 phase PR; do not start P2 until it is integrated.
+Next action: Review and accept [W03 P1 PR #8](https://github.com/brandall10/sgm-plan-bootstrap/pull/8); do not start P2 until it is integrated.
 
 ## P1 — Model declared obligations and deterministic selections
 
