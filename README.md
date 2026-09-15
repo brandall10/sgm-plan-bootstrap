@@ -45,6 +45,30 @@ exact snapshot and phase with `npm run record-result`; pass the complete
 versioned record as a JSON object through `--record-file`. The runtime exposes
 verified current and historical records at `/api/results` and `/api/history`.
 
+Use the package-local `plan` command to recover focused, attributable context;
+`npm run dev` remains the viewer launcher:
+
+```sh
+npm run plan -- current --package <package-directory>
+npm run plan -- context --package <package-directory> \
+  --snapshot <full-snapshot-sha256> --phase <phase-id> --activity implement
+npm run plan -- expand --package <package-directory> \
+  --snapshot <full-snapshot-sha256> --refs <item-id>...
+```
+
+`current` uses the latest real acceptance as its display default and reports an
+unaccepted package without substituting the working draft. `context` requires
+an explicit snapshot, phase, and activity; it prints exact governing wording,
+readiness blockers, retained results, and snapshot-bound expansion IDs.
+`expand` accepts only explicit IDs from the same snapshot and returns retained
+text or immutable viewer/runtime routes for visual and binary material. Use
+`--store <store-directory>` when the working package root is unavailable,
+`--compare-draft` to label newer working content without blending it into the
+accepted baseline, and `--max-chars N` for an explicit incomplete response
+when the complete Markdown output exceeds a character budget. Exit status `1`
+means the requested handoff is unavailable, blocked, unaccepted, or incomplete;
+status `2` is reserved for command-line errors.
+
 ## Documentation
 
 These Markdown guides are explanatory references; the runtime does not load

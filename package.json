@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && vite build",
+    "plan": "node --import tsx src/server/plan-cli.ts",
     "accept": "tsx src/server/accept-package.ts",
     "dev": "tsx src/server/cli.ts",
     "lint": "eslint .",

@@ -71,6 +71,30 @@ and explains the fallback. A candidate that is no longer available after a
 runtime restart is reported as unavailable rather than silently showing a
 different candidate.
 
+## Focused context CLI
+
+The read-only package-local command entry point is separate from the viewer
+launcher. Run `npm run plan -- current --package <package-directory>` to inspect
+the latest real accepted snapshot, or select a concrete snapshot and activity:
+
+```sh
+npm run plan -- context --package <package-directory> \
+  --snapshot <full-snapshot-sha256> --phase <phase-id> --activity verify
+npm run plan -- expand --package <package-directory> \
+  --snapshot <full-snapshot-sha256> --refs <item-id>...
+```
+
+`current` never treats a draft as accepted. `context` reports exact governing
+criteria, retained current results, prerequisite interfaces/findings,
+unavailable required files, and readiness blockers. `expand` reads only the
+retained bytes named by the selected snapshot; textual material is emitted in
+a fenced Markdown block, while visual/binary material receives an immutable
+`/api/snapshots/<snapshot-id>/...` route. A `--max-chars N` response marked
+`INCOMPLETE` omits governing wording rather than truncating it. Use
+`--compare-draft` only when you want a separately labelled W02-style change
+summary for the working draft. `--store <store-directory>` supports fresh
+recovery when the working package files are no longer available.
+
 ## Refresh troubleshooting
 
 If the viewer says it is showing the last valid revision, inspect `/api/state`
