@@ -4,9 +4,9 @@ Source plan: [W03 plan](docs/plans/2026-09-14-01-phase-context-results/plan.md)
 
 Results: [W03 results](docs/plans/2026-09-14-01-phase-context-results/results.md)
 
-State: W03 P3 is implemented and verified on the phase branch; its PR is pending review. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9).
+State: W03 P3 is implemented and verified at `7fd3b4d`; [PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10) is open and pending review. W03 P2 is integrated in `main` via [PR #9](https://github.com/brandall10/sgm-plan-bootstrap/pull/9).
 
-Next action: Review and accept the W03 P3 phase PR; after integration, select P4.
+Next action: Review and accept [W03 P3 PR #10](https://github.com/brandall10/sgm-plan-bootstrap/pull/10); after integration, select P4.
 
 ## P1 — Model declared obligations and deterministic selections
 
