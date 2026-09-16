@@ -4,13 +4,13 @@ Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/p
 
 Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: W04's documentation amendment is integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is implemented and locally verified at provider `8d48590` and target `1ff73d6`, with [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) review pending. P2 waits for P1A integration.
+State: W04's documentation amendment is integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is complete, with provider work integrated in `main` via [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) at `4c48caf` and matching target validation at `1ff73d6`. P2 is not started.
 
 Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-Next action: Review and accept [P1A provider PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13); P2 waits for its integration.
+Next action: Run `status-next` for P2 — Freshly recover, complete, and independently verify the handoff.
 
-Progress: Target `../sgm-shift-handoff-trial` is at `4cf38d6e6485310a42d6755814f65a14b57f6fcd`; snapshot acceptance and result `result.synthetic-shift-handoff-p1` are retained. Prior local records report lint, build, provider-bound tests, fresh-process recovery and result recording passed; see results for attribution and evidence limits.
+Progress: Target `../sgm-shift-handoff-trial` retains accepted snapshot `4cf38d6e6485310a42d6755814f65a14b57f6fcd`, P1 result `result.synthetic-shift-handoff-p1`, and P1A JSON-adapter result at target `1ff73d6`/provider `8d48590`; see results for attribution and evidence limits.
 
 ## P1 — Record a durable handoff through attributed phase context
 
