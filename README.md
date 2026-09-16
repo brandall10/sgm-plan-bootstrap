@@ -49,25 +49,28 @@ Use the package-local `plan` command to recover focused, attributable context;
 `npm run dev` remains the viewer launcher:
 
 ```sh
-npm run plan -- current --package <package-directory>
-npm run plan -- context --package <package-directory> \
+npm run --silent plan -- current --format json --package <package-directory>
+npm run --silent plan -- context --format json --package <package-directory> \
   --snapshot <full-snapshot-sha256> --phase <phase-id> --activity implement
-npm run plan -- expand --package <package-directory> \
+npm run --silent plan -- expand --format markdown --package <package-directory> \
   --snapshot <full-snapshot-sha256> --refs <item-id>...
 ```
 
-`current` uses the latest real acceptance as its display default and reports an
-unaccepted package without substituting the working draft. `context` requires
-an explicit snapshot, phase, and activity; it prints exact governing wording,
-readiness blockers, retained results, and snapshot-bound expansion IDs.
-`expand` accepts only explicit IDs from the same snapshot and returns retained
-text or immutable viewer/runtime routes for visual and binary material. Use
-`--store <store-directory>` when the working package root is unavailable,
-`--compare-draft` to label newer working content without blending it into the
-accepted baseline, and `--max-chars N` for an explicit incomplete response
-when the complete Markdown output exceeds a character budget. Exit status `1`
-means the requested handoff is unavailable, blocked, unaccepted, or incomplete;
-status `2` is reserved for command-line errors.
+JSON is the default, versioned public contract; `--format markdown` is an
+explicit human renderer of the same resolved response. `current` uses the
+latest real acceptance as its display default and reports an unaccepted package
+without substituting the working draft. `context` requires an explicit
+snapshot, phase, and activity; it returns exact governing wording, structured
+readiness blockers, retained result identities, and snapshot-bound expansion
+IDs. `expand` accepts only explicit IDs from the same snapshot and returns
+retained text or immutable viewer/runtime routes for visual and binary
+material. Use `--store <store-directory>` when the working package root is
+unavailable, `--compare-draft` to label newer working content without blending
+it into the accepted baseline, and `--max-chars N` for an explicit incomplete
+response when the complete selected-format serialization exceeds a character
+budget. Exit status `1` means unavailable, blocked, unaccepted, or incomplete
+context; status `2` is reserved for argument errors. See the detailed
+[CLI response contract](docs/package/plan-cli-response.md).
 
 The viewer's overview and phase views include the same retained result history,
 with evidence, limitations, and review/integration facts kept distinct. See
@@ -83,6 +86,7 @@ launching, reviewing, or troubleshooting the viewer.
 
 - [Package format and publication](docs/package/package-format.md)
 - [Package history, acceptance, and results](docs/package/package-history.md)
+- [Plan CLI response contract](docs/package/plan-cli-response.md)
 - [Local runtime and viewer](docs/package/runtime-and-viewer.md)
 - [Architecture and boundaries](docs/architecture.md)
 - [Full design specifications](docs/specs/)

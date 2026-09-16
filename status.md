@@ -4,11 +4,11 @@ Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/p
 
 Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: W04's documentation amendment is approved and integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is accepted and ready to execute, not started.
+State: W04's documentation amendment is integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is implemented and locally verified at provider `8d48590` and target `1ff73d6`, with [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) review pending. P2 waits for P1A integration.
 
 Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-Next action: On a separate execution request, run `status-next` for P1A — Establish the JSON CLI contract and migrate the trial adapter. P2 waits for P1A.
+Next action: Review and accept [P1A provider PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13); P2 waits for its integration.
 
 Progress: Target `../sgm-shift-handoff-trial` is at `4cf38d6e6485310a42d6755814f65a14b57f6fcd`; snapshot acceptance and result `result.synthetic-shift-handoff-p1` are retained. Prior local records report lint, build, provider-bound tests, fresh-process recovery and result recording passed; see results for attribution and evidence limits.
 
@@ -24,10 +24,10 @@ Progress: Target `../sgm-shift-handoff-trial` is at `4cf38d6e6485310a42d6755814f
 Prerequisites satisfied: preserved P1 evidence and accepted, integrated bootstrap amendment. The local target needs no remote/PR; its review/integration facts remain as recorded.
 Execution order is P1 → P1A → P2; target package phase IDs are unchanged.
 
-- [ ] P1A-T1 — Define the versioned public response contract, runtime validation, field presence, diagnostics, readiness, coverage and budget semantics.
-- [ ] P1A-T2 — Assemble one resolved response for JSON-default and explicit JSON/Markdown rendering across all three read operations.
-- [ ] P1A-T3 — Migrate the existing trial adapter/tests to validated JSON, preserving explicit identity, provider streams and exit status.
-- [ ] P1A-T4 — Verify the real protocol boundary and P1 compatibility, update current usage with implementation, and record attributable results and bounded serialization measurements.
+- [x] P1A-T1 — Define the versioned public response contract, runtime validation, field presence, diagnostics, readiness, coverage and budget semantics.
+- [x] P1A-T2 — Assemble one resolved response for JSON-default and explicit JSON/Markdown rendering across all three read operations.
+- [x] P1A-T3 — Migrate the existing trial adapter/tests to validated JSON, preserving explicit identity, provider streams and exit status.
+- [x] P1A-T4 — Verify the real protocol boundary and P1 compatibility, update current usage with implementation, and record attributable results and bounded serialization measurements.
 
 ## P2 — Freshly recover, complete, and independently verify the handoff
 

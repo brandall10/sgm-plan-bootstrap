@@ -33,6 +33,18 @@ import type { AcceptanceRecord } from "../core/snapshot.js";
 import { snapshotIdentityInput, type SnapshotDescriptor } from "../core/snapshot.js";
 import { loadCandidate, type CandidateLoadResult } from "./candidate-loader.js";
 import { SnapshotStore, type ResultHistoryResult, type StoredSnapshot } from "./snapshot-store.js";
+import {
+  PLAN_CLI_RESPONSE_FORMAT,
+  PLAN_CLI_RESPONSE_VERSION,
+  serializePlanCliResponse,
+  validatePlanCliResponse,
+  type PlanCliAcceptanceStatus,
+  type PlanCliDiagnostic,
+  type PlanCliReadinessState,
+  type PlanCliResponse,
+  type PlanCliResponseFormat,
+  type PlanCliResponseOperation,
+} from "./plan-cli-response.js";
 
 export type PlanCommand = "current" | "context" | "expand";
 
@@ -47,6 +59,8 @@ export interface PlanCliOptions {
   refs: string[];
   maxChars?: number;
   compareDraft: boolean;
+  /** JSON is the machine-facing default; Markdown is an explicit renderer. */
+  format?: PlanCliResponseFormat;
 }
 
 export interface PlanCliParseResult {
@@ -59,6 +73,7 @@ export interface PlanCliParseResult {
 export interface PlanCliRunResult {
   output: string;
   exitCode: 0 | 1 | 2;
+  response: PlanCliResponse;
 }
 
 interface DraftInfo {
@@ -112,26 +127,32 @@ interface ExpansionRenderResult {
   unavailable: boolean;
 }
 
-const BASE_FLAGS = new Set(["--package", "-p", "--store", "--repository", "--snapshot", "--snapshot-id"]);
+interface ExpansionResolution {
+  items: Array<{ request: ExpansionRequest; rendered: ExpansionRenderResult }>;
+  diagnostics: Diagnostic[];
+  unavailable: boolean;
+}
+
+const BASE_FLAGS = new Set(["--package", "-p", "--store", "--repository", "--snapshot", "--snapshot-id", "--format"]);
 const CONTEXT_FLAGS = new Set(["--phase", "--phase-id", "--activity", "--max-chars", "--char-budget", "--budget", "--compare-draft"]);
 const EXPAND_FLAGS = new Set(["--refs", "--ref", "--max-chars", "--char-budget", "--budget"]);
 const CURRENT_FLAGS = new Set(["--compare-draft"]);
 
 function usage(command?: PlanCommand): string {
   if (command === "current") {
-    return "Usage: plan current --package PATH [--snapshot SNAPSHOT_ID] [--compare-draft]";
+    return "Usage: plan current --package PATH [--snapshot SNAPSHOT_ID] [--format json|markdown] [--compare-draft]";
   }
   if (command === "context") {
-    return "Usage: plan context --package PATH --snapshot SNAPSHOT_ID --phase PHASE_ID --activity implement|verify [--max-chars N] [--compare-draft]";
+    return "Usage: plan context --package PATH --snapshot SNAPSHOT_ID --phase PHASE_ID --activity implement|verify [--format json|markdown] [--max-chars N] [--compare-draft]";
   }
   if (command === "expand") {
-    return "Usage: plan expand --package PATH --snapshot SNAPSHOT_ID --refs REF_ID... [--max-chars N]";
+    return "Usage: plan expand --package PATH --snapshot SNAPSHOT_ID --refs REF_ID... [--format json|markdown] [--max-chars N]";
   }
   return [
     "Usage:",
-    "  plan current --package PATH [--snapshot SNAPSHOT_ID] [--compare-draft]",
-    "  plan context --package PATH --snapshot SNAPSHOT_ID --phase PHASE_ID --activity implement|verify [--max-chars N] [--compare-draft]",
-    "  plan expand --package PATH --snapshot SNAPSHOT_ID --refs REF_ID... [--max-chars N]",
+    "  plan current --package PATH [--snapshot SNAPSHOT_ID] [--format json|markdown] [--compare-draft]",
+    "  plan context --package PATH --snapshot SNAPSHOT_ID --phase PHASE_ID --activity implement|verify [--format json|markdown] [--max-chars N] [--compare-draft]",
+    "  plan expand --package PATH --snapshot SNAPSHOT_ID --refs REF_ID... [--format json|markdown] [--max-chars N]",
     "",
     "Use --store STORE_PATH instead of --package when the working package root is unavailable.",
   ].join("\n");
@@ -178,6 +199,8 @@ export function parsePlanCliArgs(argv: readonly string[]): PlanCliParseResult {
   let maxChars: number | undefined;
   let compareDraft = false;
   let compareDraftSeen = false;
+  let format: PlanCliResponseFormat = "json";
+  let formatSeen = false;
   const refs: string[] = [];
 
   try {
@@ -195,6 +218,15 @@ export function parsePlanCliArgs(argv: readonly string[]): PlanCliParseResult {
         case "--repository": repositoryPath = addOnce(repositoryPath, requiredValue(argv, index, argument), argument); index += 1; break;
         case "--snapshot":
         case "--snapshot-id": snapshotId = addOnce(snapshotId, requiredValue(argv, index, argument), argument); index += 1; break;
+        case "--format": {
+          if (formatSeen) throw new Error("--format may only be provided once.");
+          const value = requiredValue(argv, index, argument);
+          if (value !== "json" && value !== "markdown") throw new Error("--format must be json or markdown.");
+          format = value;
+          formatSeen = true;
+          index += 1;
+          break;
+        }
         case "--phase":
         case "--phase-id": phaseId = addOnce(phaseId, requiredValue(argv, index, argument), argument); index += 1; break;
         case "--activity": {
@@ -258,18 +290,404 @@ export function parsePlanCliArgs(argv: readonly string[]): PlanCliParseResult {
       refs,
       ...(maxChars === undefined ? {} : { maxChars }),
       compareDraft,
+      format,
     },
     error: null,
     help: false,
   };
 }
 
-function diagnosticLines(diagnostics: readonly Diagnostic[]): string[] {
-  return diagnostics.map((diagnostic) => `- ${diagnostic.severity.toUpperCase()} \`${diagnostic.code}\` at \`${diagnostic.path}\`: ${diagnostic.message}${diagnostic.itemId ? ` (item \`${diagnostic.itemId}\`)` : ""}`);
+function outputFormat(options: PlanCliOptions): PlanCliResponseFormat {
+  return options.format ?? "json";
 }
 
-function charCount(value: string): number {
-  return Array.from(value).length;
+function publicDiagnostic(diagnostic: Diagnostic): PlanCliDiagnostic {
+  return {
+    code: diagnostic.code,
+    severity: diagnostic.severity,
+    message: diagnostic.message,
+    path: diagnostic.path,
+    ...(diagnostic.itemId ? { item_id: diagnostic.itemId } : {}),
+  };
+}
+
+function publicDiagnostics(diagnostics: readonly Diagnostic[]): PlanCliDiagnostic[] {
+  return diagnostics.map(publicDiagnostic);
+}
+
+function requestFor(options: PlanCliOptions): PlanCliResponse["request"] {
+  return {
+    format: outputFormat(options),
+    package_path: options.packagePath ?? null,
+    store_path: options.storePath ?? null,
+    repository_path: options.repositoryPath ?? null,
+    snapshot_id: options.snapshotId ?? null,
+    phase_id: options.phaseId ?? null,
+    activity: options.activity ?? null,
+    refs: [...options.refs],
+    max_chars: options.maxChars ?? null,
+    compare_draft: options.compareDraft,
+  };
+}
+
+function responseSource(input: {
+  snapshot?: StoredSnapshot | null;
+  acceptance?: PlanCliAcceptanceStatus;
+  selectedIds?: readonly string[];
+  records?: readonly ResultRecord[];
+}): PlanCliResponse["source"] {
+  const records = input.records ?? [];
+  return {
+    package_id: input.snapshot?.packageId ?? null,
+    snapshot_id: input.snapshot?.snapshotId ?? null,
+    revision: input.snapshot?.revision ?? null,
+    acceptance_status: input.acceptance ?? "unavailable",
+    selected_source_ids: [...new Set(input.selectedIds ?? [])],
+    result_ids: [...new Set(records.map((record) => record.result_id))],
+    code_revisions: [...new Set(records.map((record) => record.code_revision))],
+  };
+}
+
+function publicResult(record: ResultRecord, status: "current" | "superseded"): Record<string, unknown> {
+  return {
+    result_id: record.result_id,
+    phase_id: record.phase_id,
+    activity: record.activity,
+    recorded_at: record.recorded_at,
+    code_revision: record.code_revision,
+    evidence_status: resultEvidenceStatus(record),
+    illustrative: record.illustrative,
+    produced_interfaces: record.produced_interfaces.map((item) => ({
+      id: item.id,
+      name: item.name,
+      description_md: item.description_md,
+      disposition: item.disposition,
+      related_item_ids: [...item.related_item_ids],
+    })),
+    unresolved_findings: record.unresolved_findings.map((item) => ({
+      id: item.id,
+      severity: item.severity,
+      disposition: item.disposition,
+      text_md: item.text_md,
+      related_item_ids: [...item.related_item_ids],
+    })),
+    delivery: { ...record.delivery_facts },
+    status,
+  };
+}
+
+function responseFor(
+  options: PlanCliOptions,
+  input: Omit<PlanCliResponse, "format" | "format_version" | "request">,
+): PlanCliResponse {
+  return {
+    format: PLAN_CLI_RESPONSE_FORMAT,
+    format_version: PLAN_CLI_RESPONSE_VERSION,
+    request: requestFor(options),
+    ...input,
+  };
+}
+
+function unavailableResponse(
+  options: PlanCliOptions,
+  operation: PlanCliResponseOperation | null,
+  diagnostics: readonly Diagnostic[],
+  message: string,
+  exitCode: 0 | 1 | 2 = 1,
+): PlanCliRunResult {
+  const blocker = errorDiagnostic("plan-cli-unavailable", message, "plan");
+  const response = responseFor(options, {
+    operation,
+    source: responseSource({}),
+    outcome: "error",
+    diagnostics: publicDiagnostics([...diagnostics, blocker]),
+    coverage: "unavailable",
+    completeness: "unavailable",
+    readiness: { state: "blocked", blockers: publicDiagnostics([blocker]) },
+    data: { kind: "failure", message },
+  });
+  return finishResponse(options, response, renderFailureMarkdown(operation, message, [...diagnostics, blocker]), exitCode);
+}
+
+function responseReadiness(state: PlanCliReadinessState, blockers: readonly Diagnostic[] = []): PlanCliResponse["readiness"] {
+  return { state, blockers: publicDiagnostics(blockers) };
+}
+
+function draftSection(draft: DraftComparison | null): Record<string, unknown> {
+  if (!draft) return { state: "not_requested" };
+  return {
+    state: draft.status === "unavailable" ? "unavailable" : "resolved",
+    ...(draft.status === "unavailable" ? { diagnostics: publicDiagnostics(draft.diagnostics) } : {
+      items: [{
+        status: draft.status,
+        revision: draft.revision,
+        content_id: draft.contentId,
+        diagnostics: publicDiagnostics(draft.diagnostics),
+        ...(draft.comparison ? {
+          material_change_count: draft.comparison.material_change_count,
+          metadata_change_count: draft.comparison.metadata_change_count,
+          changes: draft.comparison.changes.map((change) => ({
+            id: change.id,
+            kind: change.kind,
+            classification: change.classification,
+            fields: [...change.fields],
+          })),
+        } : {}),
+      }],
+    }),
+  };
+}
+
+function currentResponse(
+  options: PlanCliOptions,
+  history: PackageHistory,
+  snapshot: StoredSnapshot | null,
+  draft: DraftComparison | null,
+): PlanCliResponse {
+  const acceptance = snapshot ? snapshotStatus(snapshot.snapshotId, history.acceptances) : "unverified";
+  const hasRetainedMaterial = history.snapshots.length > 0;
+  const blocker = !snapshot
+    ? errorDiagnostic("snapshot-acceptance-unverified", "No real accepted snapshot is available for executable context.", "snapshot_id")
+    : acceptance === "accepted"
+      ? null
+      : errorDiagnostic("snapshot-acceptance-unverified", `Selected snapshot '${snapshot.snapshotId}' is ${acceptance}.`, "snapshot_id", snapshot.snapshotId);
+  const records = snapshot ? historicalResultRecords(history.resultHistory, snapshot.snapshotId) : history.resultHistory.records;
+  const current = snapshot ? currentResultRecords(history.resultHistory, snapshot.snapshotId) : [];
+  return responseFor(options, {
+    operation: "current",
+    source: {
+      ...responseSource({
+        snapshot,
+        acceptance: snapshot ? acceptance : hasRetainedMaterial ? "unverified" : "unavailable",
+        selectedIds: snapshot ? [snapshot.plan.id, ...snapshot.plan.phases.map((phase) => phase.id)] : [],
+        records,
+      }),
+      package_id: snapshot?.packageId ?? history.packageId,
+    },
+    outcome: hasRetainedMaterial || snapshot ? "ok" : "error",
+    diagnostics: publicDiagnostics(history.diagnostics),
+    coverage: hasRetainedMaterial || snapshot ? "complete" : "unavailable",
+    completeness: hasRetainedMaterial || snapshot ? "complete" : "unavailable",
+    readiness: responseReadiness(snapshot && acceptance === "accepted" ? "not_evaluated" : "blocked", blocker ? [blocker] : []),
+    data: {
+      kind: "current",
+      accepted_baseline: snapshot
+        ? { state: "resolved", items: [{ package_id: snapshot.packageId, snapshot_id: snapshot.snapshotId, revision: snapshot.revision, acceptance_status: acceptance }] }
+        : { state: "unavailable", diagnostics: publicDiagnostics(blocker ? [blocker] : history.diagnostics) },
+      phase_states: snapshot
+        ? { state: "resolved", items: snapshot.plan.phases.map((phase, order) => ({ id: phase.id, title: phase.title, depends_on: [...phase.depends_on], order })) }
+        : { state: "not_requested" },
+      snapshots: {
+        state: "resolved",
+        items: history.snapshots.map((candidate) => ({
+          snapshot_id: candidate.snapshotId,
+          package_id: candidate.packageId,
+          revision: candidate.revision,
+          acceptance_status: snapshotStatus(candidate.snapshotId, history.acceptances),
+        })),
+      },
+      results: { state: "resolved", items: records.map((record) => publicResult(record, current.some((item) => item.result_id === record.result_id) ? "current" : "superseded")) },
+      draft_comparison: draftSection(draft),
+    },
+  });
+}
+
+function contextResponse(
+  options: PlanCliOptions,
+  context: SnapshotContext,
+  selection: ContextSelection,
+  acceptance: "accepted" | "illustrative" | "unverified",
+  draft: DraftComparison | null,
+  diagnostics: readonly Diagnostic[],
+): PlanCliResponse {
+  const historical = historicalResultRecords(context.resultHistory, selection.snapshot_id);
+  const current = currentResultRecords(context.resultHistory, selection.snapshot_id);
+  const resultByPhase = new Map<string, ResultRecord[]>();
+  for (const record of current) {
+    const records = resultByPhase.get(record.phase_id) ?? [];
+    records.push(record);
+    resultByPhase.set(record.phase_id, records);
+  }
+  return responseFor(options, {
+    operation: "context",
+    source: responseSource({ snapshot: context.snapshot, acceptance, selectedIds: selection.selected_item_ids, records: historical }),
+    outcome: "ok",
+    diagnostics: publicDiagnostics(diagnostics),
+    coverage: selection.coverage,
+    completeness: "complete",
+    readiness: responseReadiness(selection.readiness.ready ? "ready" : "blocked", selection.readiness.blockers),
+    data: {
+      kind: "context",
+      plan: {
+        id: selection.plan.id,
+        title: selection.plan.title,
+        revision: selection.plan.revision,
+        goal_md: selection.goal_md,
+        scope: { included: [...selection.scope.included], excluded: [...selection.scope.excluded] },
+      },
+      phase: {
+        id: selection.phase.id,
+        title: selection.phase.title,
+        depends_on: [...selection.phase.depends_on],
+        objective_md: selection.phase.objective_md,
+        approach_md: selection.phase.approach_md,
+        tasks: selection.tasks.map((task) => ({ id: task.id, activity: task.activity, text_md: task.text_md })),
+      },
+      phase_map: { state: "resolved", items: selection.phase_map.map((phase) => ({ ...phase, depends_on: [...phase.depends_on] })) },
+      constraints: { state: "resolved", items: selection.constraints.map((item) => ({ id: item.id, text_md: item.text_md })) },
+      criteria: { state: "resolved", items: selection.criteria.map((item) => ({ id: item.id, owner_phase_id: item.owner_phase_id, text_md: item.text_md })) },
+      decisions: { state: "resolved", items: selection.decisions.map((item) => ({ ...item, applies_to: [...item.applies_to] })) },
+      questions: { state: "resolved", items: selection.questions.map((item) => ({ ...item, applies_to: [...item.applies_to] })) },
+      references: { state: "resolved", items: selection.references.map((item) => ({ ...item, applies_to: [...item.applies_to] })) },
+      assets: { state: "resolved", items: selection.assets.map((item) => ({ ...item, applies_to: [...item.applies_to], dependency_file_ids: [...item.dependency_file_ids], immutable_route: immutableRoute(selection.snapshot_id, item.format === "html" ? "prototype" : "asset", item.id) })) },
+      governing: { state: "resolved", items: selection.governing.map((item) => ({ ...item })) },
+      expansions: { state: "resolved", items: selection.expandable.map((item) => ({ ...item })) },
+      prerequisite_results: {
+        state: "resolved",
+        items: selection.prerequisite_results.map((item) => ({
+          phase_id: item.phase_id,
+          status: item.status,
+          result_id: item.result_id ?? null,
+          interface_ids: [...(item.interface_ids ?? [])],
+          unresolved_finding_ids: [...(item.unresolved_finding_ids ?? [])],
+          records: (resultByPhase.get(item.phase_id) ?? []).map((record) => publicResult(record, "current")),
+        })),
+      },
+      results: {
+        state: "resolved",
+        items: historical.map((record) => publicResult(record, current.some((item) => item.result_id === record.result_id) ? "current" : "superseded")),
+      },
+      limitations: { state: "resolved", items: publicDiagnostics(selection.limitations) },
+      draft_comparison: draftSection(draft),
+    },
+  });
+}
+
+function expandResponse(
+  options: PlanCliOptions,
+  context: SnapshotContext,
+  acceptance: "accepted" | "illustrative" | "unverified",
+  resolution: ExpansionResolution,
+): PlanCliResponse {
+  const hasErrors = errorsIn(resolution.diagnostics) || resolution.unavailable;
+  return responseFor(options, {
+    operation: "expand",
+    source: responseSource({
+      snapshot: context.snapshot,
+      acceptance,
+      selectedIds: resolution.items.map((item) => item.request.id),
+      records: historicalResultRecords(context.resultHistory, context.snapshot.snapshotId),
+    }),
+    outcome: hasErrors ? "error" : "ok",
+    diagnostics: publicDiagnostics(resolution.diagnostics),
+    coverage: hasErrors ? "unavailable" : "complete",
+    completeness: "complete",
+    readiness: responseReadiness("not_evaluated"),
+    data: {
+      kind: "expand",
+      expansions: {
+        state: hasErrors && resolution.items.length === 0 ? "unavailable" : "resolved",
+        ...(hasErrors && resolution.items.length === 0
+          ? { diagnostics: publicDiagnostics(resolution.diagnostics) }
+          : {
+            items: resolution.items.map(({ request, rendered }) => ({
+              id: request.id,
+              request: request.raw,
+              state: rendered.unavailable ? "unavailable" : "resolved",
+              content_markdown: rendered.text,
+            })),
+          }),
+      },
+    },
+  });
+}
+
+function budgetResponse(response: PlanCliResponse, fullCharacters: number): PlanCliResponse {
+  const diagnostic: PlanCliDiagnostic = {
+    code: "budget-exceeded",
+    severity: "error",
+    message: `The complete ${response.request.format} response contains ${fullCharacters} Unicode code points, above the requested limit of ${response.request.max_chars}.`,
+    path: "max_chars",
+  };
+  return {
+    ...response,
+    outcome: "error",
+    diagnostics: [...response.diagnostics, diagnostic],
+    completeness: "incomplete",
+    readiness: { state: "not_evaluated", blockers: [...response.readiness.blockers, diagnostic] },
+    data: {
+      kind: "budget",
+      full_serialized_characters: fullCharacters,
+      requested_max_chars: response.request.max_chars,
+      next_steps: ["Raise --max-chars for the complete response.", "Use plan expand with the same explicit snapshot for supporting material."],
+    },
+  };
+}
+
+function budgetMarkdown(response: PlanCliResponse): string {
+  const source = response.source;
+  const fullCharacters = response.data["full_serialized_characters"];
+  return [
+    `# Plan ${response.operation ?? "command"} response`,
+    "",
+    "## Handoff status",
+    "- status: INCOMPLETE — character budget exceeded; this output is not executable context.",
+    `- characters in complete output: ${typeof fullCharacters === "number" ? fullCharacters : "unknown"}`,
+    `- character budget: ${response.request.max_chars ?? "unknown"}`,
+    "- exact token count: not reported; no tokenizer was used.",
+    "",
+    "## Provenance",
+    `- package_id: ${source.package_id ? code(source.package_id) : "unknown"}`,
+    `- snapshot_id: ${source.snapshot_id ? code(source.snapshot_id) : "unknown"}`,
+    `- acceptance: ${source.acceptance_status}`,
+    "",
+    "## Required omitted IDs",
+    `- ${listOrNone(source.selected_source_ids)}`,
+    "",
+    "## Available explicit expansions",
+    "- Re-run with a larger --max-chars or use plan expand against the same snapshot.",
+    "",
+    "## Diagnostics",
+    ...response.diagnostics.map((diagnostic) => `- ${diagnostic.severity.toUpperCase()} \`${diagnostic.code}\` at \`${diagnostic.path}\`: ${diagnostic.message}`),
+    "",
+  ].join("\n");
+}
+
+function renderFailureMarkdown(operation: PlanCliResponseOperation | null, message: string, diagnostics: readonly Diagnostic[]): string {
+  return [
+    `# Plan ${operation ?? "command"} response`,
+    "",
+    "## Handoff status",
+    `- status: UNAVAILABLE — ${message}`,
+    ...diagnosticLines(diagnostics),
+    "",
+  ].join("\n");
+}
+
+function finishResponse(
+  options: PlanCliOptions,
+  response: PlanCliResponse,
+  markdown: string,
+  exitCode: 0 | 1 | 2,
+): PlanCliRunResult {
+  const validation = validatePlanCliResponse(response);
+  if (!validation.valid) throw new Error(`Internal plan CLI response violates its public contract: ${validation.errors.join("; ")}`);
+  const fullOutput = outputFormat(options) === "json" ? serializePlanCliResponse(response) : markdown;
+  if (options.maxChars !== undefined && Array.from(fullOutput).length > options.maxChars) {
+    const overflow = budgetResponse(response, Array.from(fullOutput).length);
+    const overflowValidation = validatePlanCliResponse(overflow);
+    if (!overflowValidation.valid) throw new Error(`Budget response violates its public contract: ${overflowValidation.errors.join("; ")}`);
+    return {
+      output: outputFormat(options) === "json" ? serializePlanCliResponse(overflow) : budgetMarkdown(overflow),
+      exitCode: 1,
+      response: overflow,
+    };
+  }
+  return { output: fullOutput, exitCode, response };
+}
+
+function diagnosticLines(diagnostics: readonly Diagnostic[]): string[] {
+  return diagnostics.map((diagnostic) => `- ${diagnostic.severity.toUpperCase()} \`${diagnostic.code}\` at \`${diagnostic.path}\`: ${diagnostic.message}${diagnostic.itemId ? ` (item \`${diagnostic.itemId}\`)` : ""}`);
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -364,51 +782,6 @@ function renderDiagnostics(title: string, diagnostics: readonly Diagnostic[]): s
 function renderBlockers(blockers: readonly ContextReadinessBlocker[]): string[] {
   if (blockers.length === 0) return ["- readiness blockers: (none)"];
   return ["- readiness blockers:", ...blockers.map((blocker) => `  - ${blocker.kind}: \`${blocker.code}\` — ${blocker.message}`)];
-}
-
-function renderBudgetExceeded(input: {
-  title: string;
-  packageId: string;
-  snapshotId: string;
-  revision: number;
-  activity?: ContextActivity;
-  phaseId?: string;
-  fullCharacters: number;
-  budget: number;
-  requiredIds: readonly string[];
-  expansionIds: readonly string[];
-  selectedIds: readonly string[];
-  acceptance: string;
-  diagnostics?: readonly Diagnostic[];
-}): string {
-  const lines = [
-    `# ${input.title}`,
-    "",
-    "## Handoff status",
-    "- status: INCOMPLETE — character budget exceeded; this output is not executable context.",
-    `- characters in complete output: ${input.fullCharacters}`,
-    `- character budget: ${input.budget}`,
-    "- exact token count: not reported; no tokenizer was used.",
-    ...renderProvenance({
-      packageId: input.packageId,
-      snapshotId: input.snapshotId,
-      revision: input.revision,
-      acceptance: input.acceptance,
-      ...(input.phaseId ? { phaseId: input.phaseId } : {}),
-      ...(input.activity ? { activity: input.activity } : {}),
-      selectedItemIds: input.selectedIds,
-    }),
-    "",
-    "## Required omitted IDs",
-    `- ${listOrNone(input.requiredIds)}`,
-    "",
-    "## Available explicit expansions",
-    `- ${listOrNone(input.expansionIds)}`,
-    "",
-    "Expand one or more IDs with the same snapshot, or raise --max-chars. Governing wording was not truncated.",
-    ...(input.diagnostics && input.diagnostics.length > 0 ? ["", "## Diagnostics", ...diagnosticLines(input.diagnostics)] : []),
-  ];
-  return `${lines.join("\n")}\n`;
 }
 
 async function readDraftInfo(packagePath: string | undefined): Promise<DraftInfo> {
@@ -1027,13 +1400,11 @@ function renderExpansionItem(snapshot: StoredSnapshot, request: ExpansionRequest
   }
 }
 
-function renderExpand(
+function resolveExpand(
   snapshot: StoredSnapshot,
   requests: readonly ExpansionRequest[],
-  acceptance: string,
   diagnostics: readonly Diagnostic[],
-  maxChars?: number,
-): PlanCliRunResult {
+): ExpansionResolution {
   const validRequests: ExpansionRequest[] = [];
   const errors: Diagnostic[] = [...diagnostics];
   for (const request of requests) {
@@ -1054,8 +1425,13 @@ function renderExpand(
   }
   const declaredIds = collectAddressableIds(snapshot.plan);
   for (const request of validRequests) if (!declaredIds.has(request.id)) errors.push(errorDiagnostic("unknown-expansion-id", `Expansion ID '${request.id}' is not declared by snapshot '${snapshot.snapshotId}'.`, "refs", request.id));
-  const items = validRequests.filter((request) => declaredIds.has(request.id)).map((request) => renderExpansionItem(snapshot, request));
-  const unavailable = items.some((item) => item.unavailable);
+  const items = validRequests
+    .filter((request) => declaredIds.has(request.id))
+    .map((request) => ({ request, rendered: renderExpansionItem(snapshot, request) }));
+  return { items, diagnostics: errors, unavailable: items.some((item) => item.rendered.unavailable) };
+}
+
+function renderExpand(snapshot: StoredSnapshot, resolution: ExpansionResolution, acceptance: string): string {
   const full = [
     `# Expanded plan material — ${snapshot.plan.title}`,
     "",
@@ -1064,26 +1440,10 @@ function renderExpand(
     "",
     ...renderProvenance({ packageId: snapshot.packageId, snapshotId: snapshot.snapshotId, revision: snapshot.revision, acceptance }),
     "",
-    ...items.flatMap((item) => [item.text, ""]),
-    ...renderDiagnostics("Expansion diagnostics", errors),
+    ...resolution.items.flatMap((item) => [item.rendered.text, ""]),
+    ...renderDiagnostics("Expansion diagnostics", resolution.diagnostics),
   ].join("\n");
-  if (maxChars !== undefined && charCount(full) > maxChars) {
-    const output = renderBudgetExceeded({
-      title: `Expanded plan material — ${snapshot.plan.title}`,
-      packageId: snapshot.packageId,
-      snapshotId: snapshot.snapshotId,
-      revision: snapshot.revision,
-      fullCharacters: charCount(full),
-      budget: maxChars,
-      requiredIds: requests.map((request) => request.id),
-      expansionIds: requests.map((request) => request.id),
-      selectedIds: validRequests.map((request) => request.id),
-      acceptance,
-      diagnostics: errors,
-    });
-    return { output, exitCode: 1 };
-  }
-  return { output: `${full.trimEnd()}\n`, exitCode: errorsIn(errors) || unavailable || errorsIn(snapshot.diagnostics) ? 1 : 0 };
+  return `${full.trimEnd()}\n`;
 }
 
 async function runCurrent(options: PlanCliOptions): Promise<PlanCliRunResult> {
@@ -1104,20 +1464,22 @@ async function runCurrent(options: PlanCliOptions): Promise<PlanCliRunResult> {
     snapshot = accepted ? history.snapshots.find((candidate) => candidate.snapshotId === accepted.snapshot_id) ?? null : null;
   }
   const draft = snapshot ? await compareDraft(options, snapshot) : null;
-  const output = renderCurrent(history, snapshot, draft);
   const status = snapshot ? snapshotStatus(snapshot.snapshotId, history.acceptances) : "unverified";
   const draftFailure = draft?.status === "unavailable" && draft.diagnostics.length > 0;
-  return { output, exitCode: status === "accepted" && !errorsIn(history.diagnostics) && !draftFailure ? 0 : 1 };
+  const response = currentResponse(options, history, snapshot, draft);
+  return finishResponse(options, response, renderCurrent(history, snapshot, draft), status === "accepted" && !errorsIn(history.diagnostics) && !draftFailure ? 0 : 1);
 }
 
 async function runContext(options: PlanCliOptions): Promise<PlanCliRunResult> {
   if (!options.snapshotId || !options.phaseId || !options.activity) throw new Error("context requires --snapshot, --phase, and --activity.");
   const loaded = await loadSnapshotContext(options, options.snapshotId);
   if (!loaded.context) {
-    return {
-      output: `# Plan context\n\n## Handoff status\n- status: UNAVAILABLE — snapshot ${code(options.snapshotId)} could not be reopened.\n${diagnosticLines(loaded.diagnostics.length > 0 ? loaded.diagnostics : [errorDiagnostic("snapshot-unavailable", `Snapshot '${options.snapshotId}' is unavailable.`, "snapshot_id")]).join("\n")}\n`,
-      exitCode: 1,
-    };
+    return unavailableResponse(
+      options,
+      "context",
+      loaded.diagnostics.length > 0 ? loaded.diagnostics : [errorDiagnostic("snapshot-unavailable", `Snapshot '${options.snapshotId}' is unavailable.`, "snapshot_id")],
+      `Snapshot '${options.snapshotId}' could not be reopened.`,
+    );
   }
   const context = loaded.context;
   const status = snapshotStatus(context.snapshot.snapshotId, context.acceptances);
@@ -1142,45 +1504,44 @@ async function runContext(options: PlanCliOptions): Promise<PlanCliRunResult> {
       ...renderProvenance({ packageId: context.snapshot.packageId, snapshotId: context.snapshot.snapshotId, revision: context.snapshot.revision, phaseId: options.phaseId, activity: options.activity, acceptance: status }),
       ...renderDiagnostics("Selection diagnostics", selected.diagnostics),
     ].join("\n") + "\n";
-    return { output, exitCode: 1 };
+    const response = responseFor(options, {
+      operation: "context",
+      source: responseSource({ snapshot: context.snapshot, acceptance: status }),
+      outcome: "error",
+      diagnostics: publicDiagnostics([...context.diagnostics, ...selected.diagnostics]),
+      coverage: "unavailable",
+      completeness: "unavailable",
+      readiness: responseReadiness("blocked", selected.diagnostics),
+      data: { kind: "failure", message: "The requested context identity could not be resolved." },
+    });
+    return finishResponse(options, response, output, 1);
   }
   const draft = options.compareDraft ? await compareDraft(options, context.snapshot) : null;
   const full = renderContext(selected.value, context.resultHistory, status, draft, [...context.diagnostics, ...selected.diagnostics, ...(draft?.diagnostics ?? [])]);
-  const output = options.maxChars !== undefined && charCount(full) > options.maxChars
-    ? renderBudgetExceeded({
-      title: `Plan context — ${context.snapshot.plan.title}`,
-      packageId: context.snapshot.packageId,
-      snapshotId: context.snapshot.snapshotId,
-      revision: context.snapshot.revision,
-      phaseId: selected.value.phase_id,
-      activity: selected.value.activity,
-      fullCharacters: charCount(full),
-      budget: options.maxChars,
-      requiredIds: selected.value.governing.map((item) => item.id),
-      expansionIds: selected.value.expandable.map((item) => item.id),
-      selectedIds: selected.value.selected_item_ids,
-      acceptance: status,
-      diagnostics: [...context.diagnostics, ...selected.diagnostics, ...selected.value.readiness.blockers, ...(draft?.diagnostics ?? [])],
-    })
-    : full;
-  const incomplete = options.maxChars !== undefined && charCount(full) > options.maxChars;
+  const diagnostics = [...context.diagnostics, ...selected.diagnostics, ...(draft?.diagnostics ?? [])];
+  const response = contextResponse(options, context, selected.value, status, draft, diagnostics);
   const draftFailure = draft?.status === "unavailable" && draft.diagnostics.length > 0;
-  return { output, exitCode: incomplete || !selected.value.readiness.ready || errorsIn(context.diagnostics) || draftFailure ? 1 : 0 };
+  return finishResponse(options, response, full, !selected.value.readiness.ready || errorsIn(context.diagnostics) || draftFailure ? 1 : 0);
 }
 
 async function runExpand(options: PlanCliOptions): Promise<PlanCliRunResult> {
   if (!options.snapshotId || options.refs.length === 0) throw new Error("expand requires --snapshot and at least one --refs ID.");
   const loaded = await loadSnapshotContext(options, options.snapshotId);
   if (!loaded.context) {
-    return {
-      output: `# Expanded plan material\n\n## Handoff status\n- status: UNAVAILABLE — snapshot ${code(options.snapshotId)} could not be reopened.\n${diagnosticLines(loaded.diagnostics).join("\n")}\n`,
-      exitCode: 1,
-    };
+    return unavailableResponse(
+      options,
+      "expand",
+      loaded.diagnostics.length > 0 ? loaded.diagnostics : [errorDiagnostic("snapshot-unavailable", `Snapshot '${options.snapshotId}' is unavailable.`, "snapshot_id")],
+      `Snapshot '${options.snapshotId}' could not be reopened.`,
+    );
   }
   const context = loaded.context;
   const requests = options.refs.map((raw) => expansionRequest(raw, context.snapshot.packageId, context.snapshot.snapshotId));
   const acceptance = snapshotStatus(context.snapshot.snapshotId, context.acceptances);
-  return renderExpand(context.snapshot, requests, acceptance, context.diagnostics, options.maxChars);
+  const resolution = resolveExpand(context.snapshot, requests, context.diagnostics);
+  const response = expandResponse(options, context, acceptance, resolution);
+  const exitCode = errorsIn(resolution.diagnostics) || resolution.unavailable || errorsIn(context.snapshot.diagnostics) ? 1 : 0;
+  return finishResponse(options, response, renderExpand(context.snapshot, resolution, acceptance), exitCode);
 }
 
 export async function runPlanCli(options: PlanCliOptions): Promise<PlanCliRunResult> {
@@ -1189,11 +1550,55 @@ export async function runPlanCli(options: PlanCliOptions): Promise<PlanCliRunRes
     if (options.command === "context") return await runContext(options);
     return await runExpand(options);
   } catch (error) {
-    return {
-      output: `# Plan command error\n\n- status: ERROR\n- ${error instanceof Error ? error.message : String(error)}\n`,
-      exitCode: 1,
-    };
+    return unavailableResponse(options, options.command, [], error instanceof Error ? error.message : String(error));
   }
+}
+
+function argumentValue(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  const value = index >= 0 ? argv[index + 1] : undefined;
+  return value && !value.startsWith("-") ? value : undefined;
+}
+
+function argumentFailureOptions(argv: readonly string[]): { options: PlanCliOptions; operation: PlanCliResponseOperation | null } {
+  const command = argv[0];
+  const operation = command === "current" || command === "context" || command === "expand" ? command : null;
+  const formatValue = argumentValue(argv, "--format");
+  const activityValue = argumentValue(argv, "--activity");
+  const maxCharsValue = argumentValue(argv, "--max-chars") ?? argumentValue(argv, "--char-budget") ?? argumentValue(argv, "--budget");
+  const maxChars = maxCharsValue && /^[1-9]\d*$/.test(maxCharsValue) ? Number(maxCharsValue) : undefined;
+  return {
+    operation,
+    options: {
+      command: operation ?? "current",
+      packagePath: argumentValue(argv, "--package") ?? argumentValue(argv, "-p"),
+      storePath: argumentValue(argv, "--store"),
+      repositoryPath: argumentValue(argv, "--repository"),
+      snapshotId: argumentValue(argv, "--snapshot") ?? argumentValue(argv, "--snapshot-id"),
+      phaseId: argumentValue(argv, "--phase") ?? argumentValue(argv, "--phase-id"),
+      activity: activityValue === "implement" || activityValue === "verify" ? activityValue : undefined,
+      refs: [],
+      ...(maxChars && Number.isSafeInteger(maxChars) ? { maxChars } : {}),
+      compareDraft: argv.includes("--compare-draft"),
+      format: formatValue === "markdown" ? "markdown" : "json",
+    },
+  };
+}
+
+function argumentFailure(argv: readonly string[], message: string): PlanCliRunResult {
+  const { options, operation } = argumentFailureOptions(argv);
+  const diagnostic = errorDiagnostic("invalid-arguments", message, "argv");
+  const response = responseFor(options, {
+    operation,
+    source: responseSource({}),
+    outcome: "error",
+    diagnostics: publicDiagnostics([diagnostic]),
+    coverage: "unavailable",
+    completeness: "unavailable",
+    readiness: responseReadiness("blocked", [diagnostic]),
+    data: { kind: "failure", message },
+  });
+  return finishResponse(options, response, renderFailureMarkdown(operation, message, [diagnostic]), 2);
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
@@ -1203,9 +1608,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 0;
   }
   if (!parsed.options) {
-    console.error(parsed.error ?? "Invalid command.");
-    console.error(usage());
-    return 2;
+    const result = argumentFailure(argv, parsed.error ?? "Invalid command.");
+    process.stdout.write(result.output);
+    return result.exitCode;
   }
   const result = await runPlanCli(parsed.options);
   process.stdout.write(result.output);
