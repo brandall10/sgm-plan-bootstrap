@@ -4,11 +4,11 @@ Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/p
 
 Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: W04 remains active. Original P1 is complete with recorded local verification; the P1A amendment is proposed, pending this documentation PR’s explicit approval/integration. No corrective implementation has started. The target has no remote; local review/integration remain separate facts.
+State: W04's documentation amendment is approved and integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is accepted and ready to execute, not started.
 
 Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-Next action: Review and accept this documentation amendment PR. After integration and reconciliation of predecessor delivery, invoke `status-next` for P1A — Establish the JSON CLI contract and migrate the trial adapter. P2 waits for P1A.
+Next action: On a separate execution request, run `status-next` for P1A — Establish the JSON CLI contract and migrate the trial adapter. P2 waits for P1A.
 
 Progress: Target `../sgm-shift-handoff-trial` is at `4cf38d6e6485310a42d6755814f65a14b57f6fcd`; snapshot acceptance and result `result.synthetic-shift-handoff-p1` are retained. Prior local records report lint, build, provider-bound tests, fresh-process recovery and result recording passed; see results for attribution and evidence limits.
 
@@ -21,7 +21,7 @@ Progress: Target `../sgm-shift-handoff-trial` is at `4cf38d6e6485310a42d6755814f
 
 ## P1A — Establish the JSON CLI contract and migrate the trial adapter
 
-Depends on preserved P1 evidence and acceptance of the amended bootstrap plan.
+Prerequisites satisfied: preserved P1 evidence and accepted, integrated bootstrap amendment. The local target needs no remote/PR; its review/integration facts remain as recorded.
 Execution order is P1 → P1A → P2; target package phase IDs are unchanged.
 
 - [ ] P1A-T1 — Define the versioned public response contract, runtime validation, field presence, diagnostics, readiness, coverage and budget semantics.
