@@ -33,7 +33,13 @@ The selector is deterministic for identified inputs. Its completeness claim conc
 
 ## Operations
 
-The initial interface can be a local CLI over package files, returning readable Markdown plus compact provenance. The viewer and CLI reuse the [package core](02-viewer-and-review.md#application-boundaries).
+The initial interface is a local CLI over package files. Its canonical response is versioned structured JSON for agents and adapters. Explicit `--format json` selects that default; `--format markdown` provides a human-readable rendering of the same resolved response. The viewer and CLI reuse the [package core](02-viewer-and-review.md#application-boundaries); presentation does not define selection or readiness semantics.
+
+The public response contract has a stable format/version independent of the package schema, operation and explicit request identity, source provenance, structured diagnostic codes, and snapshot-bound expansion references. Consumers reject unsupported versions and tolerate unknown additive fields. The public model avoids duplicated internal selector representations and supports runtime validation at the consumer boundary.
+
+Unrequested sections, successfully resolved empty collections, unavailable material, and blocked readiness have distinct machine meanings. Acceptance, operation success, declared-context coverage, response completeness, and phase readiness remain separate claims. Limited legacy coverage is distinguishable from missing required material. Exact governing wording, result identities/revisions, prerequisite interfaces/findings, and reference attribution survive either presentation.
+
+Handled argument and source failures return parseable JSON when JSON is selected, including by default. Exceeded serialization budgets return complete, explicitly incomplete diagnostic responses with source identity and next steps, never sliced JSON or silently truncated governing obligations. A minimum diagnostic envelope may exceed a budget too small to contain it; character counts are not token counts. Process termination and failures before startup cannot promise a response. Detailed fields and operation-specific presence rules belong in one package reference, alongside the implementation.
 
 | Operation | Meaning |
 | --- | --- |
@@ -141,6 +147,8 @@ The representation can support later delegation by making scope, required contex
 | Prerequisite differs from the proposal | Actual interface and consequential mismatch are visible |
 | Required reference/asset is unavailable | The response discloses the incomplete handoff rather than claiming ready |
 | Reopen in a fresh session | Goal, current obligations, predecessor results, and unresolved findings can be recovered |
+| Select JSON or Markdown | Both render the same resolved identity, exact obligations, prerequisite results, diagnostics, and expansion meaning |
+| Handle failure or budget overflow | JSON remains parseable; unavailable, blocked, limited, empty, and unrequested material remain distinguishable; incomplete output cannot claim a complete ready handoff |
 | Compare viewer and CLI | Both identify the same revision, items, criteria, and reference meaning |
 | Verify a repaired implementation | Evidence applies to the actual candidate and does not inherit an obsolete pass |
 | Use a package without SGM | Ordinary document references support viewing and focused context |
