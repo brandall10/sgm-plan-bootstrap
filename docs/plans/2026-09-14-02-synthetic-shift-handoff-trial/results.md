@@ -6,5 +6,5 @@ Evidence: The target `plan-package/.plan-package/` retains `acceptance.synthetic
 P1A: `plan-cli-response` v1 is JSON-default; the target adapter validates and relays it, and retained `result.synthetic-shift-handoff-p1a-json` attributes the final revisions.
 Validation: Provider typecheck/lint/test/build and target lint/test/build passed; P1 fresh reopen and migrated P2 context passed.
 Measurement: [Context measurement](../../package/context-measurement.md) records matched JSON/Markdown payloads, bytes, and five-run timings; it makes no tokenizer or productivity claim.
-Delivery: Provider [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) at `2d7ef31` awaits review; target is local `codex/w04-p1a-json-adapter` at `1ff73d6`, with no remote or PR.
+Delivery: Provider [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13), containing implementation `8d48590`, awaits review; target is local `codex/w04-p1a-json-adapter` at `1ff73d6`, with no remote or PR.
 Next: Review and accept the P1A provider PR, then execute P2 from integrated main.
