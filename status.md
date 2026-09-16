@@ -4,11 +4,11 @@ Source plan: [W04 plan](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/p
 
 Results: [W04 results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md)
 
-State: W04's documentation amendment is integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is complete, with provider work integrated in `main` via [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) at `4c48caf` and matching target validation at `1ff73d6`. P2 implementation and verification are complete in the local target at `621633c`; the bootstrap record PR is pending review.
+State: W04's documentation amendment is integrated in `main` via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`. P1 is locally complete with recorded verification; P1A is complete, with provider work integrated in `main` via [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) at `4c48caf` and matching target validation at `1ff73d6`. P2 implementation and verification are complete in the local target at `621633c`; [PR #14](https://github.com/brandall10/sgm-plan-bootstrap/pull/14) is pending review.
 
 Prior active checklist: W03 is complete; see its [results](docs/plans/2026-09-14-01-phase-context-results/results.md).
 
-Next action: Review and accept the bootstrap W04 P2 record PR. The target remains a local no-remote repository by design.
+Next action: Review and accept [PR #14](https://github.com/brandall10/sgm-plan-bootstrap/pull/14). The target remains a local no-remote repository by design.
 
 Progress: Target `../sgm-shift-handoff-trial` retains accepted snapshot `4cf38d6e6485310a42d6755814f65a14b57f6fcd`, P1/P1A results, and P2 result `result.synthetic-shift-handoff-p2-recovery`; fresh retained-store readback identifies target `621633c` and provider `2ac11c8`.
 
@@ -38,4 +38,4 @@ Depends on P1's accepted package snapshot, persisted interface/result and applic
 - [x] P2-T3 — Independently verify every P2 criterion against its actual revision; supersede stale evidence only after an actual repair.
 - [x] P2-T4 — Recover retained P1/P2 context and results through `--store`, then record bounded measurements and limitations without transcripts or screenshots.
 
-Delivery: Target branch `codex/w04-p2-recover-close` has no remote or PR; bootstrap records are on `codex/w04-p2-recovery` and await the phase PR review.
+Delivery: Target branch `codex/w04-p2-recover-close` has no remote or PR; bootstrap records are on `codex/w04-p2-recovery` with [PR #14](https://github.com/brandall10/sgm-plan-bootstrap/pull/14) pending review.
