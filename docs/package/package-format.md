@@ -71,3 +71,5 @@ the viewer labels a candidate with no selected record as acceptance unverified.
 For the retained snapshot, acceptance, and result lifecycle, see
 [Package history, acceptance, and results](package-history.md). For launching
 and inspecting a package locally, see [Local runtime and viewer](runtime-and-viewer.md).
+The read-only machine/human response emitted by the package-local CLI is
+specified separately in [Plan CLI response contract](plan-cli-response.md).

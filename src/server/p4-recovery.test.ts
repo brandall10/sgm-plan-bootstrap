@@ -162,6 +162,7 @@ describe("W03 P4 fresh recovery demonstration", () => {
       activity: "verify",
       refs: [],
       compareDraft: false,
+      format: "markdown",
     });
     expect(context.exitCode).toBe(0);
     expect(context.output).toContain("status: READY");

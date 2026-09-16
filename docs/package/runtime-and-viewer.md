@@ -84,13 +84,15 @@ different candidate.
 ## Focused context CLI
 
 The read-only package-local command entry point is separate from the viewer
-launcher. Run `npm run plan -- current --package <package-directory>` to inspect
-the latest real accepted snapshot, or select a concrete snapshot and activity:
+launcher. Its default is one versioned JSON response on stdout; use Markdown
+only as an explicit human renderer. Run `npm run --silent plan -- current
+--format json --package <package-directory>` to inspect the latest real
+accepted snapshot, or select a concrete snapshot and activity:
 
 ```sh
-npm run plan -- context --package <package-directory> \
+npm run --silent plan -- context --format json --package <package-directory> \
   --snapshot <full-snapshot-sha256> --phase <phase-id> --activity verify
-npm run plan -- expand --package <package-directory> \
+npm run --silent plan -- expand --format markdown --package <package-directory> \
   --snapshot <full-snapshot-sha256> --refs <item-id>...
 ```
 
@@ -98,12 +100,16 @@ npm run plan -- expand --package <package-directory> \
 criteria, retained current results, prerequisite interfaces/findings,
 unavailable required files, and readiness blockers. `expand` reads only the
 retained bytes named by the selected snapshot; textual material is emitted in
-a fenced Markdown block, while visual/binary material receives an immutable
-`/api/snapshots/<snapshot-id>/...` route. A `--max-chars N` response marked
-`INCOMPLETE` omits governing wording rather than truncating it. Use
-`--compare-draft` only when you want a separately labelled W02-style change
-summary for the working draft. `--store <store-directory>` supports fresh
-recovery when the working package files are no longer available.
+a fenced Markdown block in the Markdown renderer, while visual/binary material
+receives an immutable `/api/snapshots/<snapshot-id>/...` route. The JSON and
+Markdown renderers use the same resolved model. A `--max-chars N` response is
+explicitly incomplete and omits governing wording rather than truncating it;
+the character count includes the trailing newline and is not a token count.
+Use `--compare-draft` only when you want a separately labelled W02-style
+change summary for the working draft. `--store <store-directory>` supports
+fresh recovery when the working package files are no longer available. The
+[response contract](plan-cli-response.md) defines identity, section states,
+diagnostics, exit codes, and adapter validation.
 
 For a fresh handoff, keep the accepted snapshot ID from `current` or
 `context`, then use `--store` if `plan.json` and its live references have been

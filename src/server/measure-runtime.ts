@@ -32,6 +32,10 @@ function characterCount(value: string): number {
   return Array.from(value).length;
 }
 
+function utf8ByteCount(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
 function fullFixtureContext(candidate: NonNullable<Awaited<ReturnType<typeof loadCandidate>>["candidate"]>): string {
   return JSON.stringify({
     manifest: candidate.plan,
@@ -90,11 +94,15 @@ async function measure(): Promise<void> {
     fullFixtureContext(contextCandidate);
     fullContextSamples.push(performance.now() - start);
   }
-  const selectedContextSamples: number[] = [];
-  let selectedContext = "";
+  const selectedJsonSamples: number[] = [];
+  const selectedMarkdownSamples: number[] = [];
+  let selectedJson = "";
+  let selectedMarkdown = "";
+  let responseFormat = "unknown";
+  let responseVersion = "unknown";
   for (let index = 0; index < runCount; index += 1) {
     const start = performance.now();
-    const result = await runPlanCli({
+    const json = await runPlanCli({
       command: "context",
       packagePath: contextPackageRoot,
       snapshotId: contextCandidate.snapshotId,
@@ -103,24 +111,62 @@ async function measure(): Promise<void> {
       refs: [],
       compareDraft: false,
     });
-    if (result.exitCode !== 0) throw new Error("Selected context measurement did not produce a ready handoff.");
-    selectedContext = result.output;
-    selectedContextSamples.push(performance.now() - start);
+    if (json.exitCode !== 0) throw new Error("JSON context measurement did not produce a ready handoff.");
+    selectedJson = json.output;
+    responseFormat = json.response.format;
+    responseVersion = json.response.format_version;
+    selectedJsonSamples.push(performance.now() - start);
+
+    const markdownStart = performance.now();
+    const markdown = await runPlanCli({
+      command: "context",
+      packagePath: contextPackageRoot,
+      snapshotId: contextCandidate.snapshotId,
+      phaseId: "phase.persistence-outcomes",
+      activity: "implement",
+      refs: [],
+      compareDraft: false,
+      format: "markdown",
+    });
+    if (markdown.exitCode !== 0) throw new Error("Markdown context measurement did not produce a ready handoff.");
+    if (JSON.stringify(json.response.data) !== JSON.stringify(markdown.response.data) || JSON.stringify(json.response.source) !== JSON.stringify(markdown.response.source)) {
+      throw new Error("JSON and Markdown context renderers did not receive the same resolved model.");
+    }
+    selectedMarkdown = markdown.output;
+    selectedMarkdownSamples.push(performance.now() - markdownStart);
   }
-  const expansionSamples: number[] = [];
-  let expandedContext = "";
+  const expansionJsonSamples: number[] = [];
+  const expansionMarkdownSamples: number[] = [];
+  let expandedJson = "";
+  let expandedMarkdown = "";
   for (let index = 0; index < runCount; index += 1) {
     const start = performance.now();
-    const result = await runPlanCli({
+    const json = await runPlanCli({
       command: "expand",
       packagePath: contextPackageRoot,
       snapshotId: contextCandidate.snapshotId,
       refs: ["reference.recovery-notes", "asset.recovery-flow"],
       compareDraft: false,
     });
-    if (result.exitCode !== 0) throw new Error("Context expansion measurement failed.");
-    expandedContext = result.output;
-    expansionSamples.push(performance.now() - start);
+    if (json.exitCode !== 0) throw new Error("JSON context expansion measurement failed.");
+    expandedJson = json.output;
+    expansionJsonSamples.push(performance.now() - start);
+
+    const markdownStart = performance.now();
+    const markdown = await runPlanCli({
+      command: "expand",
+      packagePath: contextPackageRoot,
+      snapshotId: contextCandidate.snapshotId,
+      refs: ["reference.recovery-notes", "asset.recovery-flow"],
+      compareDraft: false,
+      format: "markdown",
+    });
+    if (markdown.exitCode !== 0) throw new Error("Markdown context expansion measurement failed.");
+    if (JSON.stringify(json.response.data) !== JSON.stringify(markdown.response.data) || JSON.stringify(json.response.source) !== JSON.stringify(markdown.response.source)) {
+      throw new Error("JSON and Markdown expansion renderers did not receive the same resolved model.");
+    }
+    expandedMarkdown = markdown.output;
+    expansionMarkdownSamples.push(performance.now() - markdownStart);
   }
 
   const loadSamples: number[] = [];
@@ -206,7 +252,7 @@ async function measure(): Promise<void> {
       cpu: cpus()[0]?.model ?? "unknown",
       browser: "Google Chrome channel via Playwright",
     },
-    method: "Five ordinary sequential warm runs per category; dependency installation and process startup are excluded from load/render/refresh samples. Runtime-open includes candidate load, watcher-disabled server startup, and one /api/state request. Render includes page navigation and the overview heading becoming visible. Text/asset refresh includes the file edit, atomic publication, watched candidate publication, and the corresponding state/asset request. Context comparison uses an illustrative accepted temporary copy of the representative fixture: full context is the JSON manifest plus all captured file text, selected context is the exact ready Markdown handoff for the persistence implementation phase, and expansion is an explicit notes/diagram request against the same snapshot.",
+    method: "Five ordinary sequential warm runs per category; dependency installation and process startup are excluded from load/render/refresh samples. Runtime-open includes candidate load, watcher-disabled server startup, and one /api/state request. Render includes page navigation and the overview heading becoming visible. Text/asset refresh includes the file edit, atomic publication, watched candidate publication, and the corresponding state/asset request. Context comparison uses an illustrative accepted temporary copy of the representative fixture: full context is the JSON manifest plus all captured file text, while versioned JSON and explicit Markdown render the same resolved persistence handoff and the same explicit notes/diagram expansion.",
     runs: runCount,
     measurements: {
       warmCandidateLoadMs: summarize(loadSamples),
@@ -220,18 +266,52 @@ async function measure(): Promise<void> {
         activity: "implement",
         full: {
           characters: characterCount(fullContext),
+          utf8Bytes: utf8ByteCount(fullContext),
           elapsedMs: summarize(fullContextSamples),
         },
+        response: {
+          format: responseFormat,
+          formatVersion: responseVersion,
+          encoding: "utf-8",
+        },
         selected: {
-          characters: characterCount(selectedContext),
-          elapsedMs: summarize(selectedContextSamples),
-          expansionUses: 0,
+          json: {
+            characters: characterCount(selectedJson),
+            utf8Bytes: utf8ByteCount(selectedJson),
+            elapsedMs: summarize(selectedJsonSamples),
+            expansionUses: 0,
+          },
+          markdown: {
+            characters: characterCount(selectedMarkdown),
+            utf8Bytes: utf8ByteCount(selectedMarkdown),
+            elapsedMs: summarize(selectedMarkdownSamples),
+            expansionUses: 0,
+          },
         },
         expansion: {
           refs: ["reference.recovery-notes", "asset.recovery-flow"],
-          characters: characterCount(expandedContext),
-          elapsedMs: summarize(expansionSamples),
-          expansionUses: runCount,
+          json: {
+            characters: characterCount(expandedJson),
+            utf8Bytes: utf8ByteCount(expandedJson),
+            elapsedMs: summarize(expansionJsonSamples),
+            expansionUses: runCount,
+          },
+          markdown: {
+            characters: characterCount(expandedMarkdown),
+            utf8Bytes: utf8ByteCount(expandedMarkdown),
+            elapsedMs: summarize(expansionMarkdownSamples),
+            expansionUses: runCount,
+          },
+        },
+        totalIncludingExpansion: {
+          json: {
+            characters: characterCount(selectedJson) + characterCount(expandedJson),
+            utf8Bytes: utf8ByteCount(selectedJson) + utf8ByteCount(expandedJson),
+          },
+          markdown: {
+            characters: characterCount(selectedMarkdown) + characterCount(expandedMarkdown),
+            utf8Bytes: utf8ByteCount(selectedMarkdown) + utf8ByteCount(expandedMarkdown),
+          },
         },
         limitations: [
           "Character counts are not model token counts; no tokenizer was used.",
