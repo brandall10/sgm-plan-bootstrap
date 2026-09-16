@@ -1,8 +1,8 @@
 # SGM Plan Package experiment — project status
 
 **Updated:** 2026-09-15
-**Current state:** W01–W03 are integrated; W04 P1 is locally complete. The documentation amendment is integrated via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`; P1A is implemented and locally verified at provider `8d48590` and target `1ff73d6`, with provider review pending.
-**Recommended next work:** Review and accept the P1A provider PR; P2 follows its integration.
+**Current state:** W01–W03 are integrated; W04 P1 is locally complete. The documentation amendment is integrated via [PR #12](https://github.com/brandall10/sgm-plan-bootstrap/pull/12) at `5d023cf`; P1A is implemented and locally verified at provider `8d48590` and target `1ff73d6`, with [PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13) review pending.
+**Recommended next work:** Review and accept [P1A provider PR #13](https://github.com/brandall10/sgm-plan-bootstrap/pull/13); P2 follows its integration.
 **Active plan:** [W04 — Exercise the workflow through a synthetic shift-handoff trial](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/plan.md), with its root [checklist](status.md) and [results](docs/plans/2026-09-14-02-synthetic-shift-handoff-trial/results.md).
 
 **Goal:** make saved plans dependable to view and refine, then test focused context and retained results for the execution handoff.
